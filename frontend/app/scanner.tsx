@@ -1,5 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Platform, Animated } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  FlatList,
+  Platform,
+  Animated,
+  TextInput,
+  KeyboardAvoidingView,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
@@ -7,15 +17,17 @@ import { ProductService } from '../src/services/ProductService';
 import { CartService } from '../src/services/CartService';
 import { Colors } from '../src/constants/Colors';
 
-type ToastType = 'success' | 'error' | 'info';
+type Tab = 'scan' | 'manual' | 'list';
 
 export default function ScannerScreen() {
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
+  const [activeTab, setActiveTab] = useState<Tab>('scan');
   const [scanned, setScanned] = useState(false);
-  const [showList, setShowList] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
-  const [toast, setToast] = useState<{ msg: string; type: ToastType } | null>(null);
+  const [manualCode, setManualCode] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
   const toastOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -27,7 +39,7 @@ export default function ScannerScreen() {
     setProducts(data);
   };
 
-  const showToast = (msg: string, type: ToastType, duration = 1800) => {
+  const showToast = (msg: string, type: 'success' | 'error', duration = 1800) => {
     setToast({ msg, type });
     Animated.sequence([
       Animated.timing(toastOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
@@ -36,59 +48,183 @@ export default function ScannerScreen() {
     ]).start(() => setToast(null));
   };
 
-  const handleBarCodeScanned = async (result: BarcodeScanningResult) => {
-    if (scanned) return;
-    setScanned(true);
-
-    const product = await ProductService.findProductByBarcode(result.data);
-    if (product) {
-      await CartService.addProduct(product);
-      showToast(`✓ ${product.name} added to cart`, 'success', 1200);
-      setTimeout(() => router.back(), 1400);
-    } else {
-      showToast(`No product found for barcode: ${result.data}`, 'error', 2000);
-      setTimeout(() => setScanned(false), 2200);
-    }
-  };
-
-  const handleProductSelect = async (product: any) => {
+  const addAndGoBack = async (product: any) => {
     await CartService.addProduct(product);
     showToast(`✓ ${product.name} added to cart`, 'success', 1200);
     setTimeout(() => router.back(), 1400);
   };
 
-  // Product list view (fallback or user-requested)
-  if (showList || (permission && !permission.granted)) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
-            <Ionicons name="arrow-back" size={24} color={Colors.text} />
+  // Camera barcode scan
+  const handleBarCodeScanned = async (result: BarcodeScanningResult) => {
+    if (scanned) return;
+    setScanned(true);
+    const product = await ProductService.findProductByBarcode(result.data);
+    if (product) {
+      await addAndGoBack(product);
+    } else {
+      showToast(`Not found: ${result.data}`, 'error', 2000);
+      setTimeout(() => setScanned(false), 2200);
+    }
+  };
+
+  // Manual barcode input
+  const handleManualSearch = async () => {
+    const code = manualCode.trim();
+    if (!code) return;
+    setSearching(true);
+    const product = await ProductService.findProductByBarcode(code);
+    setSearching(false);
+    if (product) {
+      await addAndGoBack(product);
+    } else {
+      showToast(`No product found for: ${code}`, 'error', 2200);
+    }
+  };
+
+  // Product list select
+  const handleProductSelect = async (product: any) => {
+    await addAndGoBack(product);
+  };
+
+  const tabItems: { key: Tab; label: string; icon: string }[] = [
+    { key: 'scan', label: 'Camera', icon: 'camera-outline' },
+    { key: 'manual', label: 'Enter Code', icon: 'keypad-outline' },
+    { key: 'list', label: 'Product List', icon: 'list-outline' },
+  ];
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
+          <Ionicons name="arrow-back" size={24} color={Colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Add to Cart</Text>
+        <View style={{ width: 44 }} />
+      </View>
+
+      {/* Tab bar */}
+      <View style={styles.tabBar}>
+        {tabItems.map((t) => (
+          <TouchableOpacity
+            key={t.key}
+            style={[styles.tab, activeTab === t.key && styles.tabActive]}
+            onPress={() => setActiveTab(t.key)}
+          >
+            <Ionicons
+              name={t.icon as any}
+              size={18}
+              color={activeTab === t.key ? Colors.primary : Colors.textSecondary}
+            />
+            <Text style={[styles.tabText, activeTab === t.key && styles.tabTextActive]}>
+              {t.label}
+            </Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Product List</Text>
-          {permission && !permission.granted ? (
-            <TouchableOpacity onPress={requestPermission} style={styles.headerBtn}>
-              <Ionicons name="camera-outline" size={24} color={Colors.primary} />
-            </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* ── CAMERA TAB ── */}
+      {activeTab === 'scan' && (
+        <View style={{ flex: 1 }}>
+          {!permission ? (
+            <View style={styles.centered}>
+              <Text style={styles.message}>Requesting camera permission...</Text>
+            </View>
+          ) : !permission.granted ? (
+            <View style={styles.centered}>
+              <Ionicons name="camera-off-outline" size={64} color={Colors.textSecondary} />
+              <Text style={styles.message}>Camera permission required</Text>
+              <TouchableOpacity style={styles.permBtn} onPress={requestPermission}>
+                <Text style={styles.permBtnText}>Grant Permission</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setActiveTab('manual')} style={styles.switchLink}>
+                <Text style={styles.switchLinkText}>Or enter barcode manually →</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
-            <TouchableOpacity onPress={() => setShowList(false)} style={styles.headerBtn}>
-              <Ionicons name="barcode-outline" size={24} color={Colors.primary} />
-            </TouchableOpacity>
+            <>
+              <CameraView
+                style={StyleSheet.absoluteFillObject}
+                facing="back"
+                barcodeScannerSettings={{
+                  barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39', 'qr'],
+                }}
+                onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+              />
+              {/* Scan frame */}
+              <View style={styles.overlay}>
+                <View style={styles.scanArea}>
+                  <View style={[styles.corner, styles.topLeft]} />
+                  <View style={[styles.corner, styles.topRight]} />
+                  <View style={[styles.corner, styles.bottomLeft]} />
+                  <View style={[styles.corner, styles.bottomRight]} />
+                </View>
+              </View>
+              {/* Instruction */}
+              <View style={styles.instructionContainer}>
+                {!scanned && (
+                  <Text style={styles.instruction}>Align the barcode within the frame</Text>
+                )}
+                {scanned && !toast && (
+                  <TouchableOpacity style={styles.rescanButton} onPress={() => setScanned(false)}>
+                    <Ionicons name="refresh" size={20} color={Colors.white} />
+                    <Text style={styles.rescanText}>Scan Again</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </>
           )}
         </View>
+      )}
 
-        {permission && !permission.granted && (
-          <TouchableOpacity style={styles.permissionBanner} onPress={requestPermission}>
-            <Ionicons name="camera-outline" size={20} color={Colors.primary} />
-            <Text style={styles.permissionText}>Grant camera access to scan barcodes</Text>
-            <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
+      {/* ── MANUAL ENTRY TAB ── */}
+      {activeTab === 'manual' && (
+        <View style={styles.manualContainer}>
+          <View style={styles.manualCard}>
+            <Ionicons name="barcode-outline" size={48} color={Colors.primary} />
+            <Text style={styles.manualTitle}>Enter Barcode Number</Text>
+            <Text style={styles.manualDesc}>
+              Type the digits printed below the barcode
+            </Text>
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.manualInput}
+                placeholder="e.g. 8690123456789"
+                placeholderTextColor={Colors.textSecondary}
+                value={manualCode}
+                onChangeText={setManualCode}
+                keyboardType="number-pad"
+                autoFocus
+                onSubmitEditing={handleManualSearch}
+                returnKeyType="search"
+              />
+              <TouchableOpacity
+                style={[styles.searchBtn, (!manualCode.trim() || searching) && { opacity: 0.5 }]}
+                onPress={handleManualSearch}
+                disabled={!manualCode.trim() || searching}
+              >
+                <Ionicons name="search" size={22} color={Colors.white} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Recently added hint */}
+          <TouchableOpacity onPress={() => setActiveTab('list')} style={styles.switchLink}>
+            <Ionicons name="list-outline" size={16} color={Colors.primary} />
+            <Text style={styles.switchLinkText}>Browse all products →</Text>
           </TouchableOpacity>
-        )}
+        </View>
+      )}
 
-        {products.length === 0 ? (
-          <View style={styles.emptyList}>
+      {/* ── PRODUCT LIST TAB ── */}
+      {activeTab === 'list' && (
+        products.length === 0 ? (
+          <View style={styles.centered}>
             <Ionicons name="cube-outline" size={56} color={Colors.textSecondary} />
-            <Text style={styles.emptyText}>No products in database</Text>
+            <Text style={styles.message}>No products in database</Text>
           </View>
         ) : (
           <FlatList
@@ -103,91 +239,33 @@ export default function ScannerScreen() {
                 </View>
                 <View style={styles.productRight}>
                   <Text style={styles.productPrice}>{item.price.toFixed(2)} ₺</Text>
-                  <Ionicons name="add-circle" size={26} color={Colors.primary} />
+                  <Ionicons name="add-circle" size={28} color={Colors.primary} />
                 </View>
               </TouchableOpacity>
             )}
           />
-        )}
+        )
+      )}
 
-        {/* Toast */}
-        {toast && (
-          <Animated.View style={[styles.toast, styles[`toast_${toast.type}`], { opacity: toastOpacity }]}>
-            <Text style={styles.toastText}>{toast.msg}</Text>
-          </Animated.View>
-        )}
-      </View>
-    );
-  }
-
-  // Waiting for permission
-  if (!permission) {
-    return (
-      <View style={[styles.container, styles.centered]}>
-        <Text style={styles.message}>Requesting camera permission...</Text>
-      </View>
-    );
-  }
-
-  // Camera scanner
-  return (
-    <View style={styles.container}>
-      <CameraView
-        style={StyleSheet.absoluteFillObject}
-        facing="back"
-        barcodeScannerSettings={{
-          barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39', 'qr'],
-        }}
-        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-      />
-
-      {/* Header overlay */}
-      <View style={styles.headerScanner}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
-          <Ionicons name="arrow-back" size={24} color={Colors.white} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitleWhite}>Scan Barcode</Text>
-        <TouchableOpacity onPress={() => setShowList(true)} style={styles.headerBtn}>
-          <Ionicons name="list" size={24} color={Colors.white} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Scan frame */}
-      <View style={styles.overlay}>
-        <View style={styles.scanArea}>
-          <View style={[styles.corner, styles.topLeft]} />
-          <View style={[styles.corner, styles.topRight]} />
-          <View style={[styles.corner, styles.bottomLeft]} />
-          <View style={[styles.corner, styles.bottomRight]} />
-        </View>
-      </View>
-
-      {/* Instructions */}
-      <View style={styles.instructionContainer}>
-        {!scanned && (
-          <Text style={styles.instruction}>Align the barcode within the frame</Text>
-        )}
-        {scanned && !toast && (
-          <TouchableOpacity style={styles.rescanButton} onPress={() => setScanned(false)}>
-            <Ionicons name="refresh" size={20} color={Colors.white} />
-            <Text style={styles.rescanText}>Scan Again</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Toast overlay */}
+      {/* Toast */}
       {toast && (
-        <Animated.View style={[styles.toast, styles[`toast_${toast.type}`], { opacity: toastOpacity }]}>
+        <Animated.View
+          style={[
+            styles.toast,
+            toast.type === 'success' ? styles.toastSuccess : styles.toastError,
+            { opacity: toastOpacity },
+          ]}
+        >
           <Text style={styles.toastText}>{toast.msg}</Text>
         </Animated.View>
       )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.surface },
-  centered: { justifyContent: 'center', alignItems: 'center' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16, padding: 32 },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -200,78 +278,48 @@ const styles = StyleSheet.create({
   },
   headerBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: Colors.text },
-  headerScanner: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 48 : 56,
-    paddingBottom: 16,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  headerTitleWhite: { fontSize: 18, fontWeight: '700', color: Colors.white },
-  permissionBanner: {
-    flexDirection: 'row',
-    backgroundColor: `${Colors.primary}15`,
-    padding: 14,
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    gap: 10,
-    borderWidth: 1,
-    borderColor: `${Colors.primary}30`,
-  },
-  permissionText: { flex: 1, fontSize: 14, color: Colors.text, fontWeight: '500' },
-  message: { fontSize: 16, color: Colors.text, textAlign: 'center' },
-  list: { padding: 16 },
-  emptyList: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
-  emptyText: { fontSize: 16, color: Colors.textSecondary },
-  productCard: {
+  tabBar: {
     flexDirection: 'row',
     backgroundColor: Colors.white,
-    padding: 16,
-    marginBottom: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    elevation: 2,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
-  productInfo: { flex: 1 },
-  productName: { fontSize: 16, fontWeight: '600', color: Colors.text },
-  productBarcode: { fontSize: 12, color: Colors.textSecondary, marginTop: 4 },
-  productRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  productPrice: { fontSize: 18, fontWeight: '700', color: Colors.primary },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 5,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabActive: { borderBottomColor: Colors.primary },
+  tabText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
+  tabTextActive: { color: Colors.primary },
+  // Camera
   overlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center' },
-  scanArea: { width: 280, height: 280, position: 'relative' },
-  corner: { position: 'absolute', width: 40, height: 40, borderColor: Colors.primary },
+  scanArea: { width: 260, height: 200, position: 'relative' },
+  corner: { position: 'absolute', width: 36, height: 36, borderColor: Colors.primary },
   topLeft: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4 },
   topRight: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4 },
   bottomLeft: { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4 },
   bottomRight: { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4 },
   instructionContainer: {
     position: 'absolute',
-    bottom: 100,
+    bottom: 60,
     left: 0,
     right: 0,
     alignItems: 'center',
     gap: 12,
   },
   instruction: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     color: Colors.white,
     backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     borderRadius: 8,
     overflow: 'hidden',
   },
@@ -285,9 +333,83 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   rescanText: { fontSize: 14, fontWeight: '600', color: Colors.white },
+  // Permission
+  message: { fontSize: 15, color: Colors.textSecondary, textAlign: 'center' },
+  permBtn: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  permBtnText: { fontSize: 15, fontWeight: '700', color: Colors.white },
+  switchLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    padding: 8,
+  },
+  switchLinkText: { fontSize: 14, color: Colors.primary, fontWeight: '600' },
+  // Manual
+  manualContainer: { flex: 1, padding: 24, gap: 16, alignItems: 'center' },
+  manualCard: {
+    width: '100%',
+    backgroundColor: Colors.white,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    gap: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+  },
+  manualTitle: { fontSize: 18, fontWeight: '700', color: Colors.text },
+  manualDesc: { fontSize: 13, color: Colors.textSecondary, textAlign: 'center' },
+  inputRow: { flexDirection: 'row', gap: 10, width: '100%', marginTop: 6 },
+  manualInput: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: Colors.text,
+    letterSpacing: 1,
+  },
+  searchBtn: {
+    backgroundColor: Colors.primary,
+    width: 50,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // Product list
+  list: { padding: 16 },
+  productCard: {
+    flexDirection: 'row',
+    backgroundColor: Colors.white,
+    padding: 16,
+    marginBottom: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+  },
+  productInfo: { flex: 1 },
+  productName: { fontSize: 15, fontWeight: '600', color: Colors.text },
+  productBarcode: { fontSize: 12, color: Colors.textSecondary, marginTop: 3 },
+  productRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  productPrice: { fontSize: 17, fontWeight: '700', color: Colors.primary },
+  // Toast
   toast: {
     position: 'absolute',
-    bottom: 60,
+    bottom: 40,
     left: 24,
     right: 24,
     borderRadius: 12,
@@ -296,8 +418,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 100,
   },
-  toast_success: { backgroundColor: Colors.success },
-  toast_error: { backgroundColor: Colors.error },
-  toast_info: { backgroundColor: Colors.primary },
+  toastSuccess: { backgroundColor: Colors.success },
+  toastError: { backgroundColor: Colors.error },
   toastText: { fontSize: 15, fontWeight: '600', color: Colors.white, textAlign: 'center' },
 });
