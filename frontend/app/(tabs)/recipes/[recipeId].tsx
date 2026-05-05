@@ -41,22 +41,13 @@ export default function RecipeDetailScreen() {
 
   useEffect(() => { load(); }, [recipeId]);
 
-  const handleDelete = () => {
-    Alert.alert('Delete Recipe', 'Are you sure you want to delete this recipe?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await RecipeService.deleteRecipe(recipeId);
-            router.back();
-          } catch (e: any) {
-            Alert.alert('Error', e.message);
-          }
-        },
-      },
-    ]);
+  const handleDelete = async () => {
+    try {
+      await RecipeService.deleteRecipe(recipeId);
+      router.back();
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    }
   };
 
   const handleAddComment = async () => {
@@ -73,22 +64,13 @@ export default function RecipeDetailScreen() {
     }
   };
 
-  const handleDeleteComment = (commentId: string) => {
-    Alert.alert('Delete Comment', 'Are you sure you want to delete this comment?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await RecipeService.deleteComment(recipeId, commentId);
-            load();
-          } catch (e: any) {
-            Alert.alert('Error', e.message);
-          }
-        },
-      },
-    ]);
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      await RecipeService.deleteComment(recipeId, commentId);
+      load();
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    }
   };
 
   if (loading) {

@@ -77,18 +77,13 @@ export default function BrowseScreen() {
     loadRecipes(search, cat);
   };
 
-  const handleDeleteList = (id: string, name: string) => {
-    Alert.alert('Delete List', `Delete "${name}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await ShoppingListService.deleteList(id);
-          loadLists();
-        },
-      },
-    ]);
+  const handleDeleteList = async (id: string) => {
+    try {
+      await ShoppingListService.deleteList(id);
+      loadLists();
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    }
   };
 
   const handleCreateList = async () => {
@@ -308,7 +303,7 @@ export default function BrowseScreen() {
                   </Pressable>
                   <TouchableOpacity
                     style={styles.deleteBtn}
-                    onPress={() => handleDeleteList(item.id, item.name)}
+                    onPress={() => handleDeleteList(item.id)}
                     hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                     activeOpacity={0.6}
                   >

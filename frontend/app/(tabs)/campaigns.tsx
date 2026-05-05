@@ -51,22 +51,13 @@ export default function CampaignsScreen() {
     }
   };
 
-  const handleDelete = (id: string, title: string) => {
-    Alert.alert('Delete Campaign', `Delete "${title}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await CampaignService.deleteCampaign(id);
-            setCampaigns((prev) => prev.filter((c) => c.id !== id));
-          } catch (e: any) {
-            Alert.alert('Error', e.message);
-          }
-        },
-      },
-    ]);
+  const handleDelete = async (id: string) => {
+    try {
+      await CampaignService.deleteCampaign(id);
+      setCampaigns((prev) => prev.filter((c) => c.id !== id));
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    }
   };
 
   if (loading) {
@@ -115,7 +106,7 @@ export default function CampaignsScreen() {
               campaign={item}
               isAdmin={isAdmin}
               onToggle={() => handleToggle(item.id)}
-              onDelete={() => handleDelete(item.id, item.title)}
+              onDelete={() => handleDelete(item.id)}
             />
           )}
         />

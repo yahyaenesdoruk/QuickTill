@@ -38,18 +38,13 @@ export default function ShoppingListDetailScreen() {
     load();
   };
 
-  const handleDeleteItem = (itemId: string, name: string) => {
-    Alert.alert('Remove Item', `Remove "${name}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
-          await ShoppingListService.deleteItem(listId, itemId);
-          load();
-        },
-      },
-    ]);
+  const handleDeleteItem = async (itemId: string) => {
+    try {
+      await ShoppingListService.deleteItem(listId, itemId);
+      load();
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    }
   };
 
   const handleAddItem = async () => {
@@ -135,7 +130,7 @@ export default function ShoppingListDetailScreen() {
             <ItemRow
               item={item}
               onToggle={() => handleToggle(item.id)}
-              onDelete={() => handleDeleteItem(item.id, item.name)}
+              onDelete={() => handleDeleteItem(item.id)}
             />
           )}
         />

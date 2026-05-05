@@ -27,47 +27,38 @@ export default function AdminScreen() {
   if (user?.role !== 'admin') {
     return (
       <View style={styles.center}>
-        <Text style={styles.noAccess}>Erişim izniniz yok</Text>
+        <Text style={styles.noAccess}>Access denied</Text>
       </View>
     );
   }
 
   const handleChangePassword = async () => {
     if (newPw !== confirmPw) {
-      Alert.alert('Hata', 'Şifreler eşleşmiyor');
+      Alert.alert('Error', 'Passwords do not match');
       return;
     }
     if (newPw.length < 6) {
-      Alert.alert('Hata', 'Yeni şifre en az 6 karakter olmalı');
+      Alert.alert('Error', 'New password must be at least 6 characters');
       return;
     }
     setSavingPw(true);
     try {
       await AuthService.changePassword(oldPw, newPw);
-      Alert.alert('Başarılı', 'Admin şifresi güncellendi');
+      Alert.alert('Success', 'Admin password updated');
       setShowPwForm(false);
       setOldPw('');
       setNewPw('');
       setConfirmPw('');
     } catch (e: any) {
-      Alert.alert('Hata', e.message);
+      Alert.alert('Error', e.message);
     } finally {
       setSavingPw(false);
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert('Sign Out', 'Hesabından çıkmak istediğine emin misin?', [
-      { text: 'İptal', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-          router.replace('/(auth)/login');
-        },
-      },
-    ]);
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/(auth)/login');
   };
 
   return (
@@ -86,24 +77,24 @@ export default function AdminScreen() {
           <MenuRow
             icon="barcode-outline"
             iconColor={Colors.primary}
-            title="Barkodlu Ürün Ekle"
-            subtitle="Kamera ile barkod tara ve kaydet"
+            title="Add Product with Barcode"
+            subtitle="Scan barcode with camera and save"
             onPress={() => router.push('/add-barcode-product')}
           />
           <View style={styles.divider} />
           <MenuRow
             icon="create-outline"
             iconColor={Colors.primary}
-            title="Manuel Ürün Ekle"
-            subtitle="Barkodsuz ürün ekle"
+            title="Add Product Manually"
+            subtitle="Add product without barcode"
             onPress={() => router.push('/add-manual-product')}
           />
           <View style={styles.divider} />
           <MenuRow
             icon="list-outline"
             iconColor={Colors.error}
-            title="Ürün Listesi"
-            subtitle="Tüm ürünleri görüntüle ve sil"
+            title="Product List"
+            subtitle="View and delete all products"
             onPress={() => router.push('/product-management')}
           />
         </View>
@@ -114,20 +105,20 @@ export default function AdminScreen() {
           <MenuRow
             icon="pricetag-outline"
             iconColor={Colors.primary}
-            title="Kampanyalar"
-            subtitle="Kampanya oluştur ve yönet"
+            title="Campaigns"
+            subtitle="Create and manage campaigns"
             onPress={() => router.push('/(tabs)/campaigns')}
           />
         </View>
 
-        {/* Hesap */}
-        <Text style={styles.groupLabel}>Hesap</Text>
+        {/* Account */}
+        <Text style={styles.groupLabel}>Account</Text>
         <View style={styles.group}>
           <MenuRow
             icon="lock-closed-outline"
             iconColor={Colors.textSecondary}
-            title="Admin Şifresi Değiştir"
-            subtitle="Hesap şifrenizi güncelleyin"
+            title="Change Admin Password"
+            subtitle="Update your account password"
             onPress={() => setShowPwForm(!showPwForm)}
             trailing={
               <Ionicons
@@ -141,7 +132,7 @@ export default function AdminScreen() {
             <View style={styles.pwForm}>
               <TextInput
                 style={styles.pwInput}
-                placeholder="Mevcut şifre"
+                placeholder="Current password"
                 placeholderTextColor={Colors.textSecondary}
                 value={oldPw}
                 onChangeText={setOldPw}
@@ -149,7 +140,7 @@ export default function AdminScreen() {
               />
               <TextInput
                 style={styles.pwInput}
-                placeholder="Yeni şifre"
+                placeholder="New password"
                 placeholderTextColor={Colors.textSecondary}
                 value={newPw}
                 onChangeText={setNewPw}
@@ -157,7 +148,7 @@ export default function AdminScreen() {
               />
               <TextInput
                 style={styles.pwInput}
-                placeholder="Yeni şifre tekrar"
+                placeholder="Confirm new password"
                 placeholderTextColor={Colors.textSecondary}
                 value={confirmPw}
                 onChangeText={setConfirmPw}
@@ -171,7 +162,7 @@ export default function AdminScreen() {
                 {savingPw ? (
                   <ActivityIndicator size="small" color={Colors.white} />
                 ) : (
-                  <Text style={styles.saveBtnText}>Kaydet</Text>
+                  <Text style={styles.saveBtnText}>Save</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -181,7 +172,7 @@ export default function AdminScreen() {
             icon="log-out-outline"
             iconColor={Colors.error}
             title="Sign Out"
-            subtitle="Hesabından çık"
+            subtitle="Sign out of your account"
             onPress={handleLogout}
             titleColor={Colors.error}
           />

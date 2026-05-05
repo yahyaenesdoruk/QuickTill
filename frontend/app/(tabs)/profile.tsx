@@ -91,36 +91,18 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-          router.replace('/(auth)/login');
-        },
-      },
-    ]);
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/(auth)/login');
   };
 
-  const handleDeleteReceipt = (receipt: Receipt) => {
-    Alert.alert('Delete Receipt', `Delete receipt ${receipt.receiptId}?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await ReceiptService.deleteReceipt(receipt.id);
-            loadReceipts();
-          } catch (e: any) {
-            Alert.alert('Error', e.message);
-          }
-        },
-      },
-    ]);
+  const handleDeleteReceipt = async (receipt: Receipt) => {
+    try {
+      await ReceiptService.deleteReceipt(receipt.id);
+      loadReceipts();
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    }
   };
 
   const initials = user?.name

@@ -23,41 +23,23 @@ export default function ProductManagementScreen() {
   };
 
   const handleDeleteProduct = async (id: string) => {
-    Alert.alert(
-      'Ürünü Sil',
-      'Bu ürünü silmek istediğinize emin misiniz?',
-      [
-        { text: 'İptal', style: 'cancel' },
-        {
-          text: 'Sil',
-          style: 'destructive',
-          onPress: async () => {
-            const filtered = products.filter(p => p.id !== id);
-            await ProductService.saveProducts(filtered);
-            loadProducts();
-          },
-        },
-      ]
-    );
+    try {
+      const filtered = products.filter(p => p.id !== id);
+      await ProductService.saveProducts(filtered);
+      loadProducts();
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    }
   };
 
   const handleDeleteProduce = async (id: string) => {
-    Alert.alert(
-      'Ürünü Sil',
-      'Bu ürünü silmek istediğinize emin misiniz?',
-      [
-        { text: 'İptal', style: 'cancel' },
-        {
-          text: 'Sil',
-          style: 'destructive',
-          onPress: async () => {
-            const filtered = produceItems.filter(p => p.id !== id);
-            await ProductService.saveProduceItems(filtered);
-            loadProducts();
-          },
-        },
-      ]
-    );
+    try {
+      const filtered = produceItems.filter(p => p.id !== id);
+      await ProductService.saveProduceItems(filtered);
+      loadProducts();
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    }
   };
 
   return (
@@ -66,7 +48,7 @@ export default function ProductManagementScreen() {
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Ürün Yönetimi</Text>
+        <Text style={styles.headerTitle}>Product Management</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -76,7 +58,7 @@ export default function ProductManagementScreen() {
           onPress={() => setTab('barcode')}
         >
           <Text style={[styles.tabText, tab === 'barcode' && styles.tabTextActive]}>
-            Barkodlu ({products.length})
+            Barcoded ({products.length})
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -84,7 +66,7 @@ export default function ProductManagementScreen() {
           onPress={() => setTab('produce')}
         >
           <Text style={[styles.tabText, tab === 'produce' && styles.tabTextActive]}>
-            Barkodsuz ({produceItems.length})
+            No Barcode ({produceItems.length})
           </Text>
         </TouchableOpacity>
       </View>
@@ -97,7 +79,7 @@ export default function ProductManagementScreen() {
             <View style={styles.item}>
               <View style={styles.itemInfo}>
                 <Text style={styles.itemName}>{item.name}</Text>
-                <Text style={styles.itemBarcode}>Barkod: {item.barcode}</Text>
+                <Text style={styles.itemBarcode}>Barcode: {item.barcode}</Text>
                 <Text style={styles.itemCategory}>{item.category}</Text>
               </View>
               <View style={styles.itemRight}>
@@ -114,7 +96,7 @@ export default function ProductManagementScreen() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="cube-outline" size={64} color={Colors.textSecondary} />
-              <Text style={styles.emptyText}>Ürün bulunamadı</Text>
+              <Text style={styles.emptyText}>No products found</Text>
             </View>
           }
         />
@@ -132,7 +114,7 @@ export default function ProductManagementScreen() {
                 <Text style={styles.itemPrice}>
                   {item.soldBy === 'weight'
                     ? `${item.pricePerKg?.toFixed(2)} ₺/kg`
-                    : `${item.pricePerUnit?.toFixed(2)} ₺/adet`}
+                    : `${item.pricePerUnit?.toFixed(2)} ₺/unit`}
                 </Text>
                 <TouchableOpacity
                   style={styles.deleteButton}
@@ -146,7 +128,7 @@ export default function ProductManagementScreen() {
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="leaf-outline" size={64} color={Colors.textSecondary} />
-              <Text style={styles.emptyText}>Ürün bulunamadı</Text>
+              <Text style={styles.emptyText}>No products found</Text>
             </View>
           }
         />

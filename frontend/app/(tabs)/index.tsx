@@ -42,17 +42,12 @@ export default function CartScreen() {
   };
 
   const handleDelete = async (item: CartItem) => {
-    Alert.alert('Remove Item', `Remove ${item.name} from cart?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
-          await CartService.removeItem(item.id);
-          loadCart();
-        },
-      },
-    ]);
+    try {
+      await CartService.removeItem(item.id);
+      loadCart();
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    }
   };
 
   const handleProceedToPayment = () => {

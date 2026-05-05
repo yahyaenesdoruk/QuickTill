@@ -47,18 +47,13 @@ export default function ShoppingListsScreen() {
     load();
   };
 
-  const handleDelete = (id: string, name: string) => {
-    Alert.alert('Delete List', `Delete "${name}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await ShoppingListService.deleteList(id);
-          load();
-        },
-      },
-    ]);
+  const handleDelete = async (id: string) => {
+    try {
+      await ShoppingListService.deleteList(id);
+      load();
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    }
   };
 
   const getProgress = (list: ShoppingList) => {
@@ -128,7 +123,7 @@ export default function ShoppingListsScreen() {
                 </Pressable>
                 <TouchableOpacity
                   style={styles.deleteBtn}
-                  onPress={() => handleDelete(item.id, item.name)}
+                  onPress={() => handleDelete(item.id)}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                   activeOpacity={0.6}
                 >
