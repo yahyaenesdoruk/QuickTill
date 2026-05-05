@@ -9,7 +9,11 @@ async def connect_db():
     global client, db
     client = AsyncIOMotorClient(os.environ['MONGO_URL'])
     db = client[os.environ['DB_NAME']]
-    await _create_indexes()
+    try:
+        await _create_indexes()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Index creation failed (non-fatal): {e}")
 
 
 async def close_db():
