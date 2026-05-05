@@ -36,7 +36,7 @@ def _send_email_sync(to_email: str, subject: str, html_body: str):
     plain = re.sub(r'<[^>]+>', '', html_body).strip()
 
     msg = MIMEMultipart('alternative')
-    msg['From'] = smtp_user
+    msg['From'] = os.environ.get('SMTP_FROM', smtp_user)
     msg['To'] = to_email
     msg['Subject'] = subject
     msg.attach(MIMEText(html_body, 'html'))
