@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User } from '../models/User';
-import { API_BASE_URL } from './ApiConfig';
+import { API_BASE_URL, fetchWithTimeout } from './ApiConfig';
 
 const TOKEN_KEY = '@qt_token';
 const USER_KEY = '@qt_user';
@@ -39,7 +39,7 @@ export class AuthService {
     username: string,
     password: string
   ): Promise<string> {
-    const res = await fetch(`${API_BASE_URL}/auth/register`, {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, name, username, password }),
@@ -50,7 +50,7 @@ export class AuthService {
   }
 
   static async verifyRegister(email: string, otp: string): Promise<User> {
-    const res = await fetch(`${API_BASE_URL}/auth/verify-register`, {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/auth/verify-register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, otp }),
@@ -62,7 +62,7 @@ export class AuthService {
   }
 
   static async login(email: string, password: string): Promise<string> {
-    const res = await fetch(`${API_BASE_URL}/auth/login`, {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -73,7 +73,7 @@ export class AuthService {
   }
 
   static async verifyLogin(email: string, otp: string): Promise<User> {
-    const res = await fetch(`${API_BASE_URL}/auth/verify-login`, {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/auth/verify-login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, otp }),
@@ -85,7 +85,7 @@ export class AuthService {
   }
 
   static async forgotPassword(email: string): Promise<string> {
-    const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/auth/forgot-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
@@ -100,7 +100,7 @@ export class AuthService {
     otp: string,
     newPassword: string
   ): Promise<string> {
-    const res = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/auth/reset-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, otp, new_password: newPassword }),
@@ -112,7 +112,7 @@ export class AuthService {
 
   static async updateName(name: string): Promise<void> {
     const token = await this.getToken();
-    const res = await fetch(`${API_BASE_URL}/auth/profile`, {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/auth/profile`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -130,7 +130,7 @@ export class AuthService {
     newPassword: string
   ): Promise<void> {
     const token = await this.getToken();
-    const res = await fetch(`${API_BASE_URL}/auth/change-password`, {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/auth/change-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
