@@ -34,20 +34,11 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="shopping-list"
+        name="browse"
         options={{
-          title: 'Lists',
+          title: 'Recipes & Lists',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="list" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="recipes"
-        options={{
-          title: 'Recipes',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="restaurant" size={size} color={color} />
+            <Ionicons name="book" size={size} color={color} />
           ),
         }}
       />
@@ -82,6 +73,9 @@ export default function TabsLayout() {
             : { href: null }
         }
       />
+      {/* Hide old separate tabs from tab bar */}
+      <Tabs.Screen name="shopping-list" options={{ href: null }} />
+      <Tabs.Screen name="recipes" options={{ href: null }} />
     </Tabs>
   );
 }

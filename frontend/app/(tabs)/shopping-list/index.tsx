@@ -9,6 +9,7 @@ import {
   TextInput,
   Modal,
   RefreshControl,
+  Pressable,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -79,9 +80,7 @@ export default function ShoppingListsScreen() {
         <View style={styles.empty}>
           <Ionicons name="list-outline" size={64} color={Colors.textSecondary} />
           <Text style={styles.emptyTitle}>No lists yet</Text>
-          <Text style={styles.emptyDesc}>
-            Tap + to create a new list
-          </Text>
+          <Text style={styles.emptyDesc}>Tap + to create a new list</Text>
         </View>
       ) : (
         <FlatList
@@ -98,46 +97,44 @@ export default function ShoppingListsScreen() {
           renderItem={({ item }) => {
             const progress = getProgress(item);
             return (
-              <TouchableOpacity
-                style={styles.listCard}
-                onPress={() =>
-                  router.push(`/(tabs)/shopping-list/${item.id}`)
-                }
-                onLongPress={() => handleDelete(item.id, item.name)}
-              >
-                <View style={styles.listIcon}>
-                  <Ionicons name="list" size={28} color={Colors.primary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.listName}>{item.name}</Text>
-                  {progress ? (
-                    <>
-                      <Text style={styles.listMeta}>
-                        {progress.done}/{progress.total} completed
-                      </Text>
-                      <View style={styles.progressBg}>
-                        <View
-                          style={[
-                            styles.progressFill,
-                            {
-                              width: `${(progress.done / progress.total) * 100}%`,
-                            },
-                          ]}
-                        />
-                      </View>
-                    </>
-                  ) : (
-                    <Text style={styles.listMeta}>Empty list</Text>
-                  )}
-                </View>
+              <View style={styles.listCard}>
+                <Pressable
+                  style={styles.listCardMain}
+                  onPress={() => router.push(`/(tabs)/shopping-list/${item.id}`)}
+                >
+                  <View style={styles.listIcon}>
+                    <Ionicons name="list" size={28} color={Colors.primary} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.listName}>{item.name}</Text>
+                    {progress ? (
+                      <>
+                        <Text style={styles.listMeta}>
+                          {progress.done}/{progress.total} completed
+                        </Text>
+                        <View style={styles.progressBg}>
+                          <View
+                            style={[
+                              styles.progressFill,
+                              { width: `${(progress.done / progress.total) * 100}%` },
+                            ]}
+                          />
+                        </View>
+                      </>
+                    ) : (
+                      <Text style={styles.listMeta}>Empty list</Text>
+                    )}
+                  </View>
+                </Pressable>
                 <TouchableOpacity
                   style={styles.deleteBtn}
                   onPress={() => handleDelete(item.id, item.name)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  activeOpacity={0.6}
                 >
-                  <Ionicons name="trash-outline" size={18} color={Colors.error} />
+                  <Ionicons name="trash-outline" size={20} color={Colors.error} />
                 </TouchableOpacity>
-              </TouchableOpacity>
+              </View>
             );
           }}
         />
@@ -203,13 +200,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.white,
     borderRadius: 14,
-    padding: 16,
-    gap: 14,
     elevation: 1,
     shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 3,
+  },
+  listCardMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    gap: 14,
   },
   listIcon: {
     width: 52,
@@ -228,7 +230,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   progressFill: { height: '100%', backgroundColor: Colors.primary, borderRadius: 2 },
-  deleteBtn: { padding: 4 },
+  deleteBtn: {
+    padding: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 44,
+    minHeight: 44,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
