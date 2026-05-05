@@ -31,7 +31,7 @@ export default function CampaignsScreen() {
       const data = await CampaignService.getCampaigns();
       setCampaigns(data);
     } catch (e: any) {
-      Alert.alert('Hata', e.message);
+      Alert.alert('Error', e.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -47,22 +47,22 @@ export default function CampaignsScreen() {
         prev.map((c) => (c.id === id ? { ...c, is_active } : c))
       );
     } catch (e: any) {
-      Alert.alert('Hata', e.message);
+      Alert.alert('Error', e.message);
     }
   };
 
   const handleDelete = (id: string, title: string) => {
-    Alert.alert('Kampanyayı Sil', `"${title}" silinsin mi?`, [
+    Alert.alert('Delete Campaign', `Delete "${title}"?`, [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Sil',
+        text: 'Delete',
         style: 'destructive',
         onPress: async () => {
           try {
             await CampaignService.deleteCampaign(id);
             setCampaigns((prev) => prev.filter((c) => c.id !== id));
           } catch (e: any) {
-            Alert.alert('Hata', e.message);
+            Alert.alert('Error', e.message);
           }
         },
       },
@@ -95,7 +95,7 @@ export default function CampaignsScreen() {
         <View style={styles.empty}>
           <Ionicons name="pricetag-outline" size={64} color={Colors.textSecondary} />
           <Text style={styles.emptyText}>
-            {isAdmin ? 'Henüz kampanya oluşturulmadı' : 'Active kampanyanız bulunmuyor'}
+            {isAdmin ? 'No campaigns yet' : 'No active campaigns'}
           </Text>
         </View>
       ) : (
@@ -148,8 +148,8 @@ function CampaignCard({
 }) {
   const discountLabel =
     campaign.discount_type === 'percent'
-      ? `%${campaign.discount_value} İndirim`
-      : `${campaign.discount_value} ₺ İndirim`;
+      ? `${campaign.discount_value}% Off`
+      : `${campaign.discount_value} ₺ Off`;
 
   const isExpired = new Date(campaign.end_date) < new Date();
 
@@ -174,7 +174,7 @@ function CampaignCard({
         <View style={styles.statusRow}>
           {isExpired ? (
             <View style={[styles.badge, styles.badgeExpired]}>
-              <Text style={styles.badgeText}>Süresi Dolmuş</Text>
+              <Text style={styles.badgeText}>Expired</Text>
             </View>
           ) : campaign.is_active ? (
             <View style={[styles.badge, styles.badgeActive]}>
@@ -182,12 +182,12 @@ function CampaignCard({
             </View>
           ) : (
             <View style={[styles.badge, styles.badgePaused]}>
-              <Text style={styles.badgeText}>Durduruldu</Text>
+              <Text style={styles.badgeText}>Paused</Text>
             </View>
           )}
           {campaign.target_emails.length === 0 && (
             <View style={[styles.badge, styles.badgeAll]}>
-              <Text style={styles.badgeText}>Herkese Açık</Text>
+              <Text style={styles.badgeText}>Everyone</Text>
             </View>
           )}
         </View>
@@ -235,7 +235,7 @@ function CreateCampaignModal({
 
   const handleCreate = async () => {
     if (!form.title || !form.discount_value || !form.end_date) {
-      Alert.alert('Hata', 'Başlık, indirim değeri ve bitiş tarihi zorunlu');
+      Alert.alert('Error', 'Title, discount value and end date are required');
       return;
     }
     setSaving(true);
@@ -255,7 +255,7 @@ function CreateCampaignModal({
       });
       onCreated(c);
     } catch (e: any) {
-      Alert.alert('Hata', e.message);
+      Alert.alert('Error', e.message);
     } finally {
       setSaving(false);
     }
@@ -265,17 +265,17 @@ function CreateCampaignModal({
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalContainer}>
         <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>Yeni Kampanya</Text>
+          <Text style={styles.modalTitle}>New Campaign</Text>
           <TouchableOpacity onPress={onClose}>
             <Ionicons name="close" size={24} color={Colors.text} />
           </TouchableOpacity>
         </View>
         <ScrollView contentContainerStyle={styles.modalContent}>
-          <Label text="Başlık *" />
-          <TextInput style={styles.input} value={form.title} onChangeText={(v) => update('title', v)} placeholder="Kampanya adı" placeholderTextColor={Colors.textSecondary} />
+          <Label text="Title *" />
+          <TextInput style={styles.input} value={form.title} onChangeText={(v) => update('title', v)} placeholder="Campaign name" placeholderTextColor={Colors.textSecondary} />
 
-          <Label text="Açıklama" />
-          <TextInput style={[styles.input, { height: 80 }]} value={form.description} onChangeText={(v) => update('description', v)} placeholder="Kampanya açıklaması" placeholderTextColor={Colors.textSecondary} multiline />
+          <Label text="Description" />
+          <TextInput style={[styles.input, { height: 80 }]} value={form.description} onChangeText={(v) => update('description', v)} placeholder="Campaign description" placeholderTextColor={Colors.textSecondary} multiline />
 
           <Label text="Discount Type" />
           <View style={styles.typeRow}>
@@ -292,8 +292,8 @@ function CreateCampaignModal({
             ))}
           </View>
 
-          <Label text={`İndirim Değeri (${form.discount_type === 'percent' ? '%' : '₺'}) *`} />
-          <TextInput style={styles.input} value={form.discount_value} onChangeText={(v) => update('discount_value', v)} placeholder="örn: 10" placeholderTextColor={Colors.textSecondary} keyboardType="decimal-pad" />
+          <Label text={`Discount Value (${form.discount_type === 'percent' ? '%' : '₺'}) *`} />
+          <TextInput style={styles.input} value={form.discount_value} onChangeText={(v) => update('discount_value', v)} placeholder="e.g. 10" placeholderTextColor={Colors.textSecondary} keyboardType="decimal-pad" />
 
           <Label text="Start Date *" />
           <TextInput style={styles.input} value={form.start_date} onChangeText={(v) => update('start_date', v)} placeholder="YYYY-MM-DD" placeholderTextColor={Colors.textSecondary} />
@@ -301,7 +301,7 @@ function CreateCampaignModal({
           <Label text="End Date *" />
           <TextInput style={styles.input} value={form.end_date} onChangeText={(v) => update('end_date', v)} placeholder="YYYY-MM-DD" placeholderTextColor={Colors.textSecondary} />
 
-          <Label text="Hedef E-postalar (boş = herkese)" />
+          <Label text="Target Emails (empty = everyone)" />
           <TextInput style={styles.input} value={form.target_emails_str} onChangeText={(v) => update('target_emails_str', v)} placeholder="a@b.com, c@d.com" placeholderTextColor={Colors.textSecondary} autoCapitalize="none" />
 
           <TouchableOpacity

@@ -17,13 +17,13 @@ import { RecipeService } from '../../../src/services/RecipeService';
 import { RecipeIngredient, RecipeStep } from '../../../src/models/Recipe';
 import { Colors } from '../../../src/constants/Colors';
 
-const CATEGORIES = ['Kahvaltı', 'Çorba', 'Ana Yemek', 'Salata', 'Tatlı', 'İçecek', 'Genel'];
+const CATEGORIES = ['Breakfast', 'Soup', 'Main Course', 'Salad', 'Dessert', 'Drink', 'General'];
 
 export default function AddRecipeScreen() {
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('Genel');
+  const [category, setCategory] = useState('General');
   const [prepTime, setPrepTime] = useState('');
   const [servings, setServings] = useState('');
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([
@@ -71,15 +71,15 @@ export default function AddRecipeScreen() {
     const validSteps = steps.filter((s) => s.description.trim());
 
     if (!title.trim()) {
-      Alert.alert('Hata', 'Tarif başlığı boş olamaz');
+      Alert.alert('Error', 'Recipe title cannot be empty');
       return;
     }
     if (validIngredients.length === 0) {
-      Alert.alert('Hata', 'En az bir malzeme ekleyin');
+      Alert.alert('Error', 'Add at least one ingredient');
       return;
     }
     if (validSteps.length === 0) {
-      Alert.alert('Hata', 'En az bir yapılış adımı ekleyin');
+      Alert.alert('Error', 'Add at least one step');
       return;
     }
 
@@ -96,7 +96,7 @@ export default function AddRecipeScreen() {
       });
       router.back();
     } catch (e: any) {
-      Alert.alert('Hata', e.message);
+      Alert.alert('Error', e.message);
     } finally {
       setSaving(false);
     }
@@ -112,7 +112,7 @@ export default function AddRecipeScreen() {
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="close" size={24} color={Colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Yeni Tarif</Text>
+          <Text style={styles.headerTitle}>New Recipe</Text>
           <TouchableOpacity
             style={[styles.saveBtn, saving && { opacity: 0.6 }]}
             onPress={handleSave}
@@ -121,25 +121,25 @@ export default function AddRecipeScreen() {
             {saving ? (
               <ActivityIndicator size="small" color={Colors.white} />
             ) : (
-              <Text style={styles.saveBtnText}>Paylaş</Text>
+              <Text style={styles.saveBtnText}>Share</Text>
             )}
           </TouchableOpacity>
         </View>
 
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Label text="Tarif Adı *" />
+          <Label text="Recipe Title *" />
           <TextInput
             style={styles.input}
-            placeholder="örn: Ev Yapımı Pizza"
+            placeholder="e.g. Homemade Pizza"
             placeholderTextColor={Colors.textSecondary}
             value={title}
             onChangeText={setTitle}
           />
 
-          <Label text="Kısa Description" />
+          <Label text="Short Description" />
           <TextInput
             style={[styles.input, { height: 72 }]}
-            placeholder="Tarifinizi kısaca anlatın..."
+            placeholder="Briefly describe your recipe..."
             placeholderTextColor={Colors.textSecondary}
             value={description}
             onChangeText={setDescription}
@@ -163,7 +163,7 @@ export default function AddRecipeScreen() {
 
           <View style={styles.twoCol}>
             <View style={{ flex: 1 }}>
-              <Label text="Prep Time (dk)" />
+              <Label text="Prep Time (min)" />
               <TextInput
                 style={styles.input}
                 placeholder="30"
@@ -191,21 +191,21 @@ export default function AddRecipeScreen() {
             <Text style={styles.sectionTitle}>Ingredients *</Text>
             <TouchableOpacity style={styles.addSectionBtn} onPress={addIngredient}>
               <Ionicons name="add" size={18} color={Colors.primary} />
-              <Text style={styles.addSectionText}>Ekle</Text>
+              <Text style={styles.addSectionText}>Add</Text>
             </TouchableOpacity>
           </View>
           {ingredients.map((ing, i) => (
             <View key={i} style={styles.ingredientRow}>
               <TextInput
                 style={[styles.input, { flex: 2 }]}
-                placeholder="Malzeme adı"
+                placeholder="Ingredient name"
                 placeholderTextColor={Colors.textSecondary}
                 value={ing.name}
                 onChangeText={(v) => updateIngredient(i, 'name', v)}
               />
               <TextInput
                 style={[styles.input, { flex: 1 }]}
-                placeholder="Miktar"
+                placeholder="Amount"
                 placeholderTextColor={Colors.textSecondary}
                 value={ing.amount}
                 onChangeText={(v) => updateIngredient(i, 'amount', v)}
@@ -220,7 +220,7 @@ export default function AddRecipeScreen() {
 
           {/* Steps */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Yapılışı *</Text>
+            <Text style={styles.sectionTitle}>Instructions *</Text>
             <TouchableOpacity style={styles.addSectionBtn} onPress={addStep}>
               <Ionicons name="add" size={18} color={Colors.primary} />
               <Text style={styles.addSectionText}>Add Step</Text>
@@ -233,7 +233,7 @@ export default function AddRecipeScreen() {
               </View>
               <TextInput
                 style={[styles.input, { flex: 1, height: 72 }]}
-                placeholder={`${step.order}. adım açıklaması...`}
+                placeholder={`Step ${step.order} description...`}
                 placeholderTextColor={Colors.textSecondary}
                 value={step.description}
                 onChangeText={(v) => updateStep(i, v)}

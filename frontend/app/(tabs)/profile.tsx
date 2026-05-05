@@ -9,6 +9,7 @@ import {
   FlatList,
   ScrollView,
   ActivityIndicator,
+  Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -105,14 +106,18 @@ export default function ProfileScreen() {
   };
 
   const handleDeleteReceipt = (receipt: Receipt) => {
-    Alert.alert('Delete Receipt', `Delete ${receipt.receiptId}?`, [
+    Alert.alert('Delete Receipt', `Delete receipt ${receipt.receiptId}?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          await ReceiptService.deleteReceipt(receipt.id);
-          loadReceipts();
+          try {
+            await ReceiptService.deleteReceipt(receipt.id);
+            loadReceipts();
+          } catch (e: any) {
+            Alert.alert('Error', e.message);
+          }
         },
       },
     ]);
@@ -290,29 +295,31 @@ export default function ProfileScreen() {
             keyExtractor={(r) => r.id}
             contentContainerStyle={{ padding: 16 }}
             renderItem={({ item }) => (
-              <TouchableOpacity
-                style={styles.receiptCard}
-                onPress={() =>
-                  router.push({ pathname: '/receipt-detail', params: { receiptId: item.id } })
-                }
-              >
-                <View style={styles.receiptLeft}>
-                  <Ionicons name="receipt" size={24} color={Colors.primary} />
-                  <View style={{ marginLeft: 12 }}>
-                    <Text style={styles.receiptId}>{item.receiptId}</Text>
-                    <Text style={styles.receiptDate}>{item.date} - {item.time}</Text>
+              <View style={styles.receiptCard}>
+                <Pressable
+                  style={styles.receiptCardMain}
+                  onPress={() =>
+                    router.push({ pathname: '/receipt-detail', params: { receiptId: item.id } })
+                  }
+                >
+                  <View style={styles.receiptLeft}>
+                    <Ionicons name="receipt" size={24} color={Colors.primary} />
+                    <View style={{ marginLeft: 12 }}>
+                      <Text style={styles.receiptId}>{item.receiptId}</Text>
+                      <Text style={styles.receiptDate}>{item.date} - {item.time}</Text>
+                    </View>
                   </View>
-                </View>
-                <View style={styles.receiptRight}>
                   <Text style={styles.receiptTotal}>{item.total.toFixed(2)} ₺</Text>
-                  <TouchableOpacity
-                    onPress={(e) => { e.stopPropagation(); handleDeleteReceipt(item); }}
-                    style={{ padding: 4 }}
-                  >
-                    <Ionicons name="trash-outline" size={18} color={Colors.error} />
-                  </TouchableOpacity>
-                </View>
-              </TouchableOpacity>
+                </Pressable>
+                <TouchableOpacity
+                  style={styles.receiptDeleteBtn}
+                  onPress={() => handleDeleteReceipt(item)}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  activeOpacity={0.6}
+                >
+                  <Ionicons name="trash-outline" size={20} color={Colors.error} />
+                </TouchableOpacity>
+              </View>
             )}
           />
         )
@@ -431,9 +438,7 @@ const styles = StyleSheet.create({
   receiptCard: {
     backgroundColor: Colors.white,
     borderRadius: 12,
-    padding: 14,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
     elevation: 1,
@@ -442,9 +447,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 3,
   },
+  receiptCardMain: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 14,
+  },
   receiptLeft: { flexDirection: 'row', alignItems: 'center' },
   receiptId: { fontSize: 14, fontWeight: '700', color: Colors.text },
   receiptDate: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
-  receiptRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   receiptTotal: { fontSize: 16, fontWeight: '700', color: Colors.primary },
+  receiptDeleteBtn: {
+    padding: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 44,
+    minHeight: 44,
+  },
 });

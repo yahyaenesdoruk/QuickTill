@@ -32,7 +32,7 @@ export default function RecipeDetailScreen() {
       const data = await RecipeService.getRecipe(recipeId);
       setRecipe(data);
     } catch (e: any) {
-      Alert.alert('Hata', e.message);
+      Alert.alert('Error', e.message);
       router.back();
     } finally {
       setLoading(false);
@@ -42,7 +42,7 @@ export default function RecipeDetailScreen() {
   useEffect(() => { load(); }, [recipeId]);
 
   const handleDelete = () => {
-    Alert.alert('Tarifi Delete', 'Bu tarifi silmek istediğine emin misin?', [
+    Alert.alert('Delete Recipe', 'Are you sure you want to delete this recipe?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -52,7 +52,7 @@ export default function RecipeDetailScreen() {
             await RecipeService.deleteRecipe(recipeId);
             router.back();
           } catch (e: any) {
-            Alert.alert('Hata', e.message);
+            Alert.alert('Error', e.message);
           }
         },
       },
@@ -67,14 +67,14 @@ export default function RecipeDetailScreen() {
       setComment('');
       load();
     } catch (e: any) {
-      Alert.alert('Hata', e.message);
+      Alert.alert('Error', e.message);
     } finally {
       setSendingComment(false);
     }
   };
 
   const handleDeleteComment = (commentId: string) => {
-    Alert.alert('Yorumu Delete', 'Bu yorumu silmek istediğine emin misin?', [
+    Alert.alert('Delete Comment', 'Are you sure you want to delete this comment?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -84,7 +84,7 @@ export default function RecipeDetailScreen() {
             await RecipeService.deleteComment(recipeId, commentId);
             load();
           } catch (e: any) {
-            Alert.alert('Hata', e.message);
+            Alert.alert('Error', e.message);
           }
         },
       },
@@ -138,16 +138,16 @@ export default function RecipeDetailScreen() {
             <View style={styles.metaRow}>
               <MetaChip icon="person-outline" text={recipe.author_name} />
               {recipe.prep_time ? (
-                <MetaChip icon="time-outline" text={`${recipe.prep_time} dk`} />
+                <MetaChip icon="time-outline" text={`${recipe.prep_time} min`} />
               ) : null}
               {recipe.servings ? (
-                <MetaChip icon="people-outline" text={`${recipe.servings} kişi`} />
+                <MetaChip icon="people-outline" text={`${recipe.servings} servings`} />
               ) : null}
             </View>
           </View>
 
           {/* Ingredients */}
-          <Section title="Malzemeler">
+          <Section title="Ingredients">
             {recipe.ingredients.map((ing, i) => (
               <View key={i} style={styles.ingredientRow}>
                 <View style={styles.bullet} />
@@ -158,7 +158,7 @@ export default function RecipeDetailScreen() {
           </Section>
 
           {/* Steps */}
-          <Section title="Yapılışı">
+          <Section title="Instructions">
             {recipe.steps.map((step, i) => (
               <View key={i} style={styles.stepRow}>
                 <View style={styles.stepNum}>
@@ -173,7 +173,7 @@ export default function RecipeDetailScreen() {
           <Section title={`Comments (${recipe.comments.length})`}>
             {recipe.comments.length === 0 ? (
               <Text style={styles.noComments}>
-                Henüz yorum yok. İlk yorumu siz yapın!
+                No comments yet. Be the first to comment!
               </Text>
             ) : (
               recipe.comments.map((c) => {
@@ -205,7 +205,7 @@ export default function RecipeDetailScreen() {
         <View style={styles.commentInput}>
           <TextInput
             style={styles.commentField}
-            placeholder="Yorum yaz..."
+            placeholder="Write a comment..."
             placeholderTextColor={Colors.textSecondary}
             value={comment}
             onChangeText={setComment}

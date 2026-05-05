@@ -73,9 +73,12 @@ export default function TabsLayout() {
             : { href: null }
         }
       />
-      {/* Hide old separate tabs from tab bar */}
+      {/* Hide all sub-routes from tab bar */}
       <Tabs.Screen name="shopping-list" options={{ href: null }} />
+      <Tabs.Screen name="shopping-list/[listId]" options={{ href: null }} />
       <Tabs.Screen name="recipes" options={{ href: null }} />
+      <Tabs.Screen name="recipes/add" options={{ href: null }} />
+      <Tabs.Screen name="recipes/[recipeId]" options={{ href: null }} />
     </Tabs>
   );
 }
