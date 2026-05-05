@@ -1,12 +1,11 @@
-import smtplib
 import os
 import random
 import string
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from datetime import datetime, timedelta
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+import urllib.request
+import urllib.error
+import json
 
 _executor = ThreadPoolExecutor(max_workers=4)
 
@@ -16,13 +15,9 @@ def generate_otp() -> str:
 
 
 def _send_email_sync(to_email: str, subject: str, html_body: str):
-    smtp_host = os.environ.get('SMTP_HOST', '')
-    smtp_port = int(os.environ.get('SMTP_PORT', '587'))
-    smtp_user = os.environ.get('SMTP_USER', '')
-    smtp_password = os.environ.get('SMTP_PASSWORD', '')
+    api_key = os.environ.get('BREVO_API_KEY', '')
 
-    if not smtp_host or not smtp_user or not smtp_password:
-        # Dev mode: print to console
+    if not api_key:
         import re
         plain = re.sub(r'<[^>]+>', '', html_body).strip()
         print(f"\n{'='*50}")
@@ -32,29 +27,33 @@ def _send_email_sync(to_email: str, subject: str, html_body: str):
         print('='*50 + '\n')
         return
 
-    import re
-    plain = re.sub(r'<[^>]+>', '', html_body).strip()
+    sender_email = os.environ.get('SMTP_FROM', 'quicktill58@gmail.com')
 
-    msg = MIMEMultipart('alternative')
-    msg['From'] = os.environ.get('SMTP_FROM', smtp_user)
-    msg['To'] = to_email
-    msg['Subject'] = subject
-    msg.attach(MIMEText(html_body, 'html'))
+    payload = json.dumps({
+        "sender": {"name": "QuickTill", "email": sender_email},
+        "to": [{"email": to_email}],
+        "subject": subject,
+        "htmlContent": html_body
+    }).encode('utf-8')
+
+    req = urllib.request.Request(
+        "https://api.brevo.com/v3/smtp/email",
+        data=payload,
+        headers={
+            "api-key": api_key,
+            "Content-Type": "application/json",
+        },
+        method="POST"
+    )
 
     try:
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(smtp_user, smtp_password)
-            server.send_message(msg)
-            print(f"[EMAIL SENT] To: {to_email}")
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            print(f"[EMAIL SENT] To: {to_email}, Status: {resp.status}")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        print(f"[EMAIL ERROR] HTTP {e.code}: {body}")
     except Exception as e:
         print(f"[EMAIL ERROR] {e}")
-        print(f"\n{'='*50}")
-        print(f"[FALLBACK] To: {to_email}")
-        print(f"Subject: {subject}")
-        print(plain)
-        print('='*50 + '\n')
 
 
 async def send_email(to_email: str, subject: str, html_body: str):
