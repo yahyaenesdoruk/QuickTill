@@ -55,7 +55,7 @@ export default function ProfileScreen() {
 
   const handleSaveName = async () => {
     if (!newName.trim()) {
-      Alert.alert('Hata', 'İsim boş olamaz');
+      Alert.alert('Error', 'Name cannot be empty');
       return;
     }
     setSavingName(true);
@@ -64,7 +64,7 @@ export default function ProfileScreen() {
       await refreshUser();
       setEditingName(false);
     } catch (e: any) {
-      Alert.alert('Hata', e.message);
+      Alert.alert('Error', e.message);
     } finally {
       setSavingName(false);
     }
@@ -72,29 +72,29 @@ export default function ProfileScreen() {
 
   const handleChangePassword = async () => {
     if (newPw !== confirmPw) {
-      Alert.alert('Hata', 'Şifreler eşleşmiyor');
+      Alert.alert('Error', 'Passwords do not match');
       return;
     }
     setSavingPw(true);
     try {
       await AuthService.changePassword(oldPw, newPw);
-      Alert.alert('Başarılı', 'Şifreniz değiştirildi');
+      Alert.alert('Success', 'Password changed successfully');
       setShowPwForm(false);
       setOldPw('');
       setNewPw('');
       setConfirmPw('');
     } catch (e: any) {
-      Alert.alert('Hata', e.message);
+      Alert.alert('Error', e.message);
     } finally {
       setSavingPw(false);
     }
   };
 
   const handleLogout = () => {
-    Alert.alert('Çıkış Yap', 'Hesabından çıkmak istediğine emin misin?', [
-      { text: 'İptal', style: 'cancel' },
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Çıkış Yap',
+        text: 'Sign Out',
         style: 'destructive',
         onPress: async () => {
           await logout();
@@ -105,10 +105,10 @@ export default function ProfileScreen() {
   };
 
   const handleDeleteReceipt = (receipt: Receipt) => {
-    Alert.alert('Fişi Sil', `${receipt.receiptId} silinsin mi?`, [
-      { text: 'İptal', style: 'cancel' },
+    Alert.alert('Delete Receipt', `Delete ${receipt.receiptId}?`, [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Sil',
+        text: 'Delete',
         style: 'destructive',
         onPress: async () => {
           await ReceiptService.deleteReceipt(receipt.id);
@@ -131,7 +131,7 @@ export default function ProfileScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profilim</Text>
+        <Text style={styles.headerTitle}>Profile</Text>
       </View>
 
       {/* Tab switcher */}
@@ -141,7 +141,7 @@ export default function ProfileScreen() {
           onPress={() => setTab('profile')}
         >
           <Text style={[styles.tabBtnText, tab === 'profile' && styles.tabBtnTextActive]}>
-            Profil
+            Profile
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -149,7 +149,7 @@ export default function ProfileScreen() {
           onPress={() => setTab('receipts')}
         >
           <Text style={[styles.tabBtnText, tab === 'receipts' && styles.tabBtnTextActive]}>
-            Fişlerim
+            My Receipts
           </Text>
         </TouchableOpacity>
       </View>
@@ -174,19 +174,19 @@ export default function ProfileScreen() {
           <View style={styles.card}>
             <View style={styles.infoRow}>
               <Ionicons name="mail-outline" size={18} color={Colors.textSecondary} />
-              <Text style={styles.infoLabel}>E-posta</Text>
+              <Text style={styles.infoLabel}>Email</Text>
               <Text style={styles.infoValue}>{user?.email}</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.infoRow}>
               <Ionicons name="at-outline" size={18} color={Colors.textSecondary} />
-              <Text style={styles.infoLabel}>Kullanıcı Adı</Text>
+              <Text style={styles.infoLabel}>Username</Text>
               <Text style={styles.infoValue}>@{user?.username}</Text>
             </View>
             <View style={styles.divider} />
             <View style={styles.infoRow}>
               <Ionicons name="person-outline" size={18} color={Colors.textSecondary} />
-              <Text style={styles.infoLabel}>İsim</Text>
+              <Text style={styles.infoLabel}>Name</Text>
               {editingName ? (
                 <View style={styles.editRow}>
                   <TextInput
@@ -223,7 +223,7 @@ export default function ProfileScreen() {
             onPress={() => setShowPwForm(!showPwForm)}
           >
             <Ionicons name="lock-closed-outline" size={20} color={Colors.primary} />
-            <Text style={styles.actionBtnText}>Şifre Değiştir</Text>
+            <Text style={styles.actionBtnText}>Change Password</Text>
             <Ionicons
               name={showPwForm ? 'chevron-up' : 'chevron-down'}
               size={18}
@@ -235,7 +235,7 @@ export default function ProfileScreen() {
             <View style={styles.card}>
               <TextInput
                 style={styles.pwInput}
-                placeholder="Mevcut şifre"
+                placeholder="Current password"
                 placeholderTextColor={Colors.textSecondary}
                 value={oldPw}
                 onChangeText={setOldPw}
@@ -243,7 +243,7 @@ export default function ProfileScreen() {
               />
               <TextInput
                 style={styles.pwInput}
-                placeholder="Yeni şifre"
+                placeholder="New password"
                 placeholderTextColor={Colors.textSecondary}
                 value={newPw}
                 onChangeText={setNewPw}
@@ -251,7 +251,7 @@ export default function ProfileScreen() {
               />
               <TextInput
                 style={styles.pwInput}
-                placeholder="Yeni şifre tekrar"
+                placeholder="Confirm new password"
                 placeholderTextColor={Colors.textSecondary}
                 value={confirmPw}
                 onChangeText={setConfirmPw}
@@ -265,7 +265,7 @@ export default function ProfileScreen() {
                 {savingPw ? (
                   <ActivityIndicator color={Colors.white} />
                 ) : (
-                  <Text style={styles.saveBtnText}>Kaydet</Text>
+                  <Text style={styles.saveBtnText}>Save</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -274,7 +274,7 @@ export default function ProfileScreen() {
           {/* Logout */}
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={20} color={Colors.error} />
-            <Text style={styles.logoutText}>Çıkış Yap</Text>
+            <Text style={styles.logoutText}>Sign Out</Text>
           </TouchableOpacity>
         </ScrollView>
       ) : (
@@ -282,7 +282,7 @@ export default function ProfileScreen() {
         receipts.length === 0 ? (
           <View style={styles.empty}>
             <Ionicons name="receipt-outline" size={64} color={Colors.textSecondary} />
-            <Text style={styles.emptyText}>Henüz fiş bulunmuyor</Text>
+            <Text style={styles.emptyText}>No receipts yet</Text>
           </View>
         ) : (
           <FlatList

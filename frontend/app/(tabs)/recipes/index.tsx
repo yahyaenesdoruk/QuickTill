@@ -17,13 +17,13 @@ import { RecipeService } from '../../../src/services/RecipeService';
 import { Recipe } from '../../../src/models/Recipe';
 import { Colors } from '../../../src/constants/Colors';
 
-const CATEGORIES = ['Tümü', 'Kahvaltı', 'Çorba', 'Ana Yemek', 'Salata', 'Tatlı', 'İçecek', 'Genel'];
+const CATEGORIES = ['All', 'Breakfast', 'Soup', 'Main Course', 'Salad', 'Dessert', 'Drink', 'General'];
 
 export default function RecipesScreen() {
   const router = useRouter();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('Tümü');
+  const [category, setCategory] = useState('All');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -32,7 +32,7 @@ export default function RecipesScreen() {
       const data = await RecipeService.getRecipes(q, cat);
       setRecipes(data);
     } catch (e: any) {
-      Alert.alert('Hata', e.message);
+      Alert.alert('Error', e.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -66,7 +66,7 @@ export default function RecipesScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Online Tarifler</Text>
+        <Text style={styles.headerTitle}>Recipes</Text>
         <TouchableOpacity
           style={styles.addBtn}
           onPress={() => router.push('/(tabs)/recipes/add')}
@@ -80,7 +80,7 @@ export default function RecipesScreen() {
         <Ionicons name="search-outline" size={18} color={Colors.textSecondary} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Tarif veya malzeme ara..."
+          placeholder="Search recipes or ingredients..."
           placeholderTextColor={Colors.textSecondary}
           value={search}
           onChangeText={handleSearch}
@@ -114,12 +114,12 @@ export default function RecipesScreen() {
       {recipes.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="restaurant-outline" size={64} color={Colors.textSecondary} />
-          <Text style={styles.emptyTitle}>Tarif bulunamadı</Text>
+          <Text style={styles.emptyTitle}>No recipes found</Text>
           <TouchableOpacity
             style={styles.emptyAddBtn}
             onPress={() => router.push('/(tabs)/recipes/add')}
           >
-            <Text style={styles.emptyAddText}>İlk Tarifi Ekle</Text>
+            <Text style={styles.emptyAddText}>Add First Recipe</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -161,13 +161,13 @@ export default function RecipesScreen() {
                 {item.prep_time ? (
                   <View style={styles.metaItem}>
                     <Ionicons name="time-outline" size={13} color={Colors.textSecondary} />
-                    <Text style={styles.metaText}>{item.prep_time} dk</Text>
+                    <Text style={styles.metaText}>{item.prep_time} min</Text>
                   </View>
                 ) : null}
                 {item.servings ? (
                   <View style={styles.metaItem}>
                     <Ionicons name="people-outline" size={13} color={Colors.textSecondary} />
-                    <Text style={styles.metaText}>{item.servings} kişi</Text>
+                    <Text style={styles.metaText}>{item.servings} servings</Text>
                   </View>
                 ) : null}
                 <View style={[styles.metaItem, { marginLeft: 'auto' }]}>

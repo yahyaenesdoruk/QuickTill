@@ -1,9 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CartItem } from '../models/CartItem';
 import { Colors } from '../constants/Colors';
-import { Texts } from '../constants/Texts';
 
 interface Props {
   item: CartItem;
@@ -25,7 +24,7 @@ export const CartItemCard: React.FC<Props> = ({
           <Text style={styles.name}>{item.name}</Text>
           {item.weight && (
             <Text style={styles.weight}>
-              {item.weight} {Texts.common.gram}
+              {item.weight} gr
             </Text>
           )}
         </View>
@@ -36,6 +35,7 @@ export const CartItemCard: React.FC<Props> = ({
               style={styles.button}
               onPress={onDecrement}
               disabled={item.quantity <= 1}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Ionicons
                 name="remove"
@@ -44,20 +44,29 @@ export const CartItemCard: React.FC<Props> = ({
               />
             </TouchableOpacity>
             <Text style={styles.quantity}>{item.quantity}</Text>
-            <TouchableOpacity style={styles.button} onPress={onIncrement}>
+            <TouchableOpacity
+              style={styles.button}
+              onPress={onIncrement}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
               <Ionicons name="add" size={20} color={Colors.primary} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.priceContainer}>
             <Text style={styles.price}>
-              {item.price.toFixed(2)} {Texts.common.tl}
+              {item.price.toFixed(2)} ₺
             </Text>
           </View>
         </View>
       </View>
 
-      <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
+      <TouchableOpacity
+        style={styles.deleteButton}
+        onPress={onDelete}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        activeOpacity={0.6}
+      >
         <Ionicons name="trash-outline" size={24} color={Colors.error} />
       </TouchableOpacity>
     </View>
@@ -77,6 +86,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    alignItems: 'center',
   },
   content: {
     flex: 1,
@@ -108,6 +118,10 @@ const styles = StyleSheet.create({
   },
   button: {
     padding: 8,
+    minWidth: 36,
+    minHeight: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   quantity: {
     fontSize: 16,
@@ -129,5 +143,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingLeft: 12,
+    paddingVertical: 8,
+    minWidth: 44,
+    minHeight: 44,
   },
 });

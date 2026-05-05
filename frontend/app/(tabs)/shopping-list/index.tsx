@@ -37,7 +37,7 @@ export default function ShoppingListsScreen() {
 
   const handleCreate = async () => {
     if (!newListName.trim()) {
-      Alert.alert('Hata', 'Liste adı boş olamaz');
+      Alert.alert('Error', 'List name cannot be empty');
       return;
     }
     await ShoppingListService.createList(newListName.trim());
@@ -47,10 +47,10 @@ export default function ShoppingListsScreen() {
   };
 
   const handleDelete = (id: string, name: string) => {
-    Alert.alert('Listeyi Sil', `"${name}" silinsin mi?`, [
-      { text: 'İptal', style: 'cancel' },
+    Alert.alert('Delete List', `Delete "${name}"?`, [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Sil',
+        text: 'Delete',
         style: 'destructive',
         onPress: async () => {
           await ShoppingListService.deleteList(id);
@@ -69,7 +69,7 @@ export default function ShoppingListsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Alışveriş Listeleri</Text>
+        <Text style={styles.headerTitle}>Shopping Lists</Text>
         <TouchableOpacity style={styles.addBtn} onPress={() => setShowCreate(true)}>
           <Ionicons name="add" size={24} color={Colors.white} />
         </TouchableOpacity>
@@ -78,9 +78,9 @@ export default function ShoppingListsScreen() {
       {lists.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="list-outline" size={64} color={Colors.textSecondary} />
-          <Text style={styles.emptyTitle}>Henüz liste yok</Text>
+          <Text style={styles.emptyTitle}>No lists yet</Text>
           <Text style={styles.emptyDesc}>
-            Yeni bir liste oluşturmak için + butonuna bas
+            Tap + to create a new list
           </Text>
         </View>
       ) : (
@@ -113,7 +113,7 @@ export default function ShoppingListsScreen() {
                   {progress ? (
                     <>
                       <Text style={styles.listMeta}>
-                        {progress.done}/{progress.total} tamamlandı
+                        {progress.done}/{progress.total} completed
                       </Text>
                       <View style={styles.progressBg}>
                         <View
@@ -127,12 +127,13 @@ export default function ShoppingListsScreen() {
                       </View>
                     </>
                   ) : (
-                    <Text style={styles.listMeta}>Boş liste</Text>
+                    <Text style={styles.listMeta}>Empty list</Text>
                   )}
                 </View>
                 <TouchableOpacity
                   style={styles.deleteBtn}
                   onPress={() => handleDelete(item.id, item.name)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   <Ionicons name="trash-outline" size={18} color={Colors.error} />
                 </TouchableOpacity>
@@ -145,10 +146,10 @@ export default function ShoppingListsScreen() {
       <Modal visible={showCreate} transparent animationType="slide" onRequestClose={() => setShowCreate(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Yeni Liste</Text>
+            <Text style={styles.modalTitle}>New List</Text>
             <TextInput
               style={styles.modalInput}
-              placeholder="Liste adı (örn: Haftalık, Piknik)"
+              placeholder="List name (e.g. Weekly, Picnic)"
               placeholderTextColor={Colors.textSecondary}
               value={newListName}
               onChangeText={setNewListName}
@@ -160,10 +161,10 @@ export default function ShoppingListsScreen() {
                 style={styles.modalCancelBtn}
                 onPress={() => { setShowCreate(false); setNewListName(''); }}
               >
-                <Text style={styles.modalCancelText}>İptal</Text>
+                <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.modalCreateBtn} onPress={handleCreate}>
-                <Text style={styles.modalCreateText}>Oluştur</Text>
+                <Text style={styles.modalCreateText}>Create</Text>
               </TouchableOpacity>
             </View>
           </View>

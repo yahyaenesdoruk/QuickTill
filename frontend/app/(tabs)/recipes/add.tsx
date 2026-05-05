@@ -136,7 +136,7 @@ export default function AddRecipeScreen() {
             onChangeText={setTitle}
           />
 
-          <Label text="Kısa Açıklama" />
+          <Label text="Kısa Description" />
           <TextInput
             style={[styles.input, { height: 72 }]}
             placeholder="Tarifinizi kısaca anlatın..."
@@ -146,7 +146,7 @@ export default function AddRecipeScreen() {
             multiline
           />
 
-          <Label text="Kategori" />
+          <Label text="Category" />
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
             {CATEGORIES.map((cat) => (
               <TouchableOpacity
@@ -163,7 +163,7 @@ export default function AddRecipeScreen() {
 
           <View style={styles.twoCol}>
             <View style={{ flex: 1 }}>
-              <Label text="Hazırlık Süresi (dk)" />
+              <Label text="Prep Time (dk)" />
               <TextInput
                 style={styles.input}
                 placeholder="30"
@@ -174,7 +174,7 @@ export default function AddRecipeScreen() {
               />
             </View>
             <View style={{ flex: 1 }}>
-              <Label text="Kaç Kişilik" />
+              <Label text="Servings" />
               <TextInput
                 style={styles.input}
                 placeholder="4"
@@ -188,7 +188,7 @@ export default function AddRecipeScreen() {
 
           {/* Ingredients */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Malzemeler *</Text>
+            <Text style={styles.sectionTitle}>Ingredients *</Text>
             <TouchableOpacity style={styles.addSectionBtn} onPress={addIngredient}>
               <Ionicons name="add" size={18} color={Colors.primary} />
               <Text style={styles.addSectionText}>Ekle</Text>
@@ -223,7 +223,7 @@ export default function AddRecipeScreen() {
             <Text style={styles.sectionTitle}>Yapılışı *</Text>
             <TouchableOpacity style={styles.addSectionBtn} onPress={addStep}>
               <Ionicons name="add" size={18} color={Colors.primary} />
-              <Text style={styles.addSectionText}>Adım Ekle</Text>
+              <Text style={styles.addSectionText}>Add Step</Text>
             </TouchableOpacity>
           </View>
           {steps.map((step, i) => (

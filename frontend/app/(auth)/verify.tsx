@@ -140,8 +140,8 @@ export default function VerifyScreen() {
   };
 
   const titles: Record<string, string> = {
-    register: 'E-posta Doğrulama',
-    login: 'Giriş Doğrulama',
+    register: 'E-posta Verifyma',
+    login: 'Giriş Verifyma',
     forgot: 'Şifre Sıfırlama',
   };
 
@@ -158,7 +158,7 @@ export default function VerifyScreen() {
           <View style={styles.iconWrap}>
             <Ionicons name="lock-open-outline" size={56} color={Colors.primary} />
           </View>
-          <Text style={styles.title}>Yeni Şifre Belirle</Text>
+          <Text style={styles.title}>New Password Belirle</Text>
           <View style={styles.pwForm}>
             <TextInput
               style={styles.pwInput}
@@ -206,7 +206,7 @@ export default function VerifyScreen() {
         <View style={styles.iconWrap}>
           <Ionicons name="mail-open-outline" size={56} color={Colors.primary} />
         </View>
-        <Text style={styles.title}>{titles[mode] ?? 'Doğrulama'}</Text>
+        <Text style={styles.title}>{titles[mode] ?? 'Verifyma'}</Text>
         <Text style={styles.desc}>
           <Text style={{ color: Colors.primary }}>{email}</Text> adresine{'\n'}
           6 haneli kod gönderildi
@@ -239,7 +239,7 @@ export default function VerifyScreen() {
             <ActivityIndicator color={Colors.white} />
           ) : (
             <Text style={styles.buttonText}>
-              {mode === 'forgot' ? 'Devam Et' : 'Doğrula'}
+              {mode === 'forgot' ? 'Devam Et' : 'Verify'}
             </Text>
           )}
         </TouchableOpacity>

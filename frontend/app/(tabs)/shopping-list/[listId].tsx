@@ -39,10 +39,10 @@ export default function ShoppingListDetailScreen() {
   };
 
   const handleDeleteItem = (itemId: string, name: string) => {
-    Alert.alert('Ürünü Sil', `"${name}" silinsin mi?`, [
-      { text: 'İptal', style: 'cancel' },
+    Alert.alert('Remove Item', `Remove "${name}"?`, [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Sil',
+        text: 'Remove',
         style: 'destructive',
         onPress: async () => {
           await ShoppingListService.deleteItem(listId, itemId);
@@ -54,7 +54,7 @@ export default function ShoppingListDetailScreen() {
 
   const handleAddItem = async () => {
     if (!itemName.trim()) {
-      Alert.alert('Hata', 'Ürün adı boş olamaz');
+      Alert.alert('Error', 'Item name cannot be empty');
       return;
     }
     await ShoppingListService.addItem(listId, itemName.trim(), itemQty.trim() || '1');
@@ -96,7 +96,7 @@ export default function ShoppingListDetailScreen() {
         <View style={styles.progressContainer}>
           <View style={styles.progressTop}>
             <Text style={styles.progressLabel}>
-              {done}/{total} tamamlandı
+              {done}/{total} completed
             </Text>
             <Text style={styles.progressPercent}>
               {Math.round(progress * 100)}%
@@ -111,12 +111,12 @@ export default function ShoppingListDetailScreen() {
       {list.items.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="bag-outline" size={56} color={Colors.textSecondary} />
-          <Text style={styles.emptyText}>Liste boş</Text>
+          <Text style={styles.emptyText}>List is empty</Text>
           <TouchableOpacity
             style={styles.emptyAddBtn}
             onPress={() => setShowAdd(true)}
           >
-            <Text style={styles.emptyAddText}>Ürün Ekle</Text>
+            <Text style={styles.emptyAddText}>Add Item</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -149,10 +149,10 @@ export default function ShoppingListDetailScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalBox}>
-            <Text style={styles.modalTitle}>Ürün Ekle</Text>
+            <Text style={styles.modalTitle}>Add Item</Text>
             <TextInput
               style={styles.modalInput}
-              placeholder="Ürün adı (örn: Süt)"
+              placeholder="Item name (e.g. Milk)"
               placeholderTextColor={Colors.textSecondary}
               value={itemName}
               onChangeText={setItemName}
@@ -160,7 +160,7 @@ export default function ShoppingListDetailScreen() {
             />
             <TextInput
               style={styles.modalInput}
-              placeholder="Miktar (örn: 2 adet, 500g)"
+              placeholder="Quantity (e.g. 2 pcs, 500g)"
               placeholderTextColor={Colors.textSecondary}
               value={itemQty}
               onChangeText={setItemQty}
@@ -171,10 +171,10 @@ export default function ShoppingListDetailScreen() {
                 style={styles.modalCancelBtn}
                 onPress={() => { setShowAdd(false); setItemName(''); setItemQty(''); }}
               >
-                <Text style={styles.modalCancelText}>İptal</Text>
+                <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.modalCreateBtn} onPress={handleAddItem}>
-                <Text style={styles.modalCreateText}>Ekle</Text>
+                <Text style={styles.modalCreateText}>Add</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -195,7 +195,11 @@ function ItemRow({
 }) {
   return (
     <View style={[styles.itemRow, item.checked && styles.itemRowDone]}>
-      <TouchableOpacity style={styles.checkBtn} onPress={onToggle}>
+      <TouchableOpacity
+        style={styles.checkBtn}
+        onPress={onToggle}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+      >
         <Ionicons
           name={item.checked ? 'checkmark-circle' : 'ellipse-outline'}
           size={26}
@@ -210,7 +214,12 @@ function ItemRow({
           <Text style={styles.itemQty}>{item.quantity}</Text>
         ) : null}
       </View>
-      <TouchableOpacity style={styles.deleteBtn} onPress={onDelete}>
+      <TouchableOpacity
+        style={styles.deleteBtn}
+        onPress={onDelete}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        activeOpacity={0.6}
+      >
         <Ionicons name="trash-outline" size={18} color={Colors.error} />
       </TouchableOpacity>
     </View>
@@ -274,7 +283,7 @@ const styles = StyleSheet.create({
   itemName: { fontSize: 15, fontWeight: '600', color: Colors.text },
   itemNameDone: { textDecorationLine: 'line-through', color: Colors.textSecondary },
   itemQty: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
-  deleteBtn: { padding: 4 },
+  deleteBtn: { padding: 4, minWidth: 30, minHeight: 30, justifyContent: 'center', alignItems: 'center' },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',

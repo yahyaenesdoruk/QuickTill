@@ -25,7 +25,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Hata', 'E-posta ve şifre gerekli');
+      Alert.alert('Error', 'Email and password are required');
       return;
     }
     setLoading(true);
@@ -36,7 +36,7 @@ export default function LoginScreen() {
         params: { email: email.trim(), mode: 'login' },
       });
     } catch (e: any) {
-      Alert.alert('Giriş Başarısız', e.message);
+      Alert.alert('Login Failed', e.message);
     } finally {
       setLoading(false);
     }
@@ -57,7 +57,7 @@ export default function LoginScreen() {
             <Ionicons name="cart" size={40} color={Colors.white} />
           </View>
           <Text style={styles.appName}>QuickTill</Text>
-          <Text style={styles.subtitle}>Hesabına Giriş Yap</Text>
+          <Text style={styles.subtitle}>Sign in to your account</Text>
         </View>
 
         <View style={styles.form}>
@@ -65,7 +65,7 @@ export default function LoginScreen() {
             <Ionicons name="mail-outline" size={20} color={Colors.textSecondary} style={styles.icon} />
             <TextInput
               style={[styles.input, { flex: 1 }]}
-              placeholder="E-posta"
+              placeholder="Email"
               placeholderTextColor={Colors.textSecondary}
               value={email}
               onChangeText={setEmail}
@@ -79,7 +79,7 @@ export default function LoginScreen() {
             <Ionicons name="lock-closed-outline" size={20} color={Colors.textSecondary} style={styles.icon} />
             <TextInput
               style={[styles.input, { flex: 1 }]}
-              placeholder="Şifre"
+              placeholder="Password"
               placeholderTextColor={Colors.textSecondary}
               value={password}
               onChangeText={setPassword}
@@ -103,7 +103,7 @@ export default function LoginScreen() {
               })
             }
           >
-            <Text style={styles.forgotText}>Şifremi Unuttum</Text>
+            <Text style={styles.forgotText}>Forgot Password</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -114,7 +114,7 @@ export default function LoginScreen() {
             {loading ? (
               <ActivityIndicator color={Colors.white} />
             ) : (
-              <Text style={styles.buttonText}>Giriş Yap</Text>
+              <Text style={styles.buttonText}>Sign In</Text>
             )}
           </TouchableOpacity>
 
@@ -123,8 +123,8 @@ export default function LoginScreen() {
             onPress={() => router.replace('/(auth)/register')}
           >
             <Text style={styles.linkText}>
-              Hesabın yok mu?{' '}
-              <Text style={styles.linkBold}>Kayıt Ol</Text>
+              Don't have an account?{' '}
+              <Text style={styles.linkBold}>Sign Up</Text>
             </Text>
           </TouchableOpacity>
         </View>

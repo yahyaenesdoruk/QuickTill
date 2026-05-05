@@ -57,10 +57,10 @@ export default function AdminScreen() {
   };
 
   const handleLogout = () => {
-    Alert.alert('Çıkış Yap', 'Hesabından çıkmak istediğine emin misin?', [
+    Alert.alert('Sign Out', 'Hesabından çıkmak istediğine emin misin?', [
       { text: 'İptal', style: 'cancel' },
       {
-        text: 'Çıkış Yap',
+        text: 'Sign Out',
         style: 'destructive',
         onPress: async () => {
           await logout();
@@ -73,15 +73,15 @@ export default function AdminScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Admin Paneli</Text>
+        <Text style={styles.headerTitle}>Admin Panel</Text>
         <View style={styles.adminBadge}>
           <Text style={styles.adminBadgeText}>Admin</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Ürün Yönetimi */}
-        <Text style={styles.groupLabel}>Ürün Yönetimi</Text>
+        {/* Product Management */}
+        <Text style={styles.groupLabel}>Product Management</Text>
         <View style={styles.group}>
           <MenuRow
             icon="barcode-outline"
@@ -108,8 +108,8 @@ export default function AdminScreen() {
           />
         </View>
 
-        {/* Kampanya Yönetimi */}
-        <Text style={styles.groupLabel}>Kampanya Yönetimi</Text>
+        {/* Campaign Management */}
+        <Text style={styles.groupLabel}>Campaign Management</Text>
         <View style={styles.group}>
           <MenuRow
             icon="pricetag-outline"
@@ -180,7 +180,7 @@ export default function AdminScreen() {
           <MenuRow
             icon="log-out-outline"
             iconColor={Colors.error}
-            title="Çıkış Yap"
+            title="Sign Out"
             subtitle="Hesabından çık"
             onPress={handleLogout}
             titleColor={Colors.error}

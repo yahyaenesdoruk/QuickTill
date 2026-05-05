@@ -53,7 +53,7 @@ export default function CampaignsScreen() {
 
   const handleDelete = (id: string, title: string) => {
     Alert.alert('Kampanyayı Sil', `"${title}" silinsin mi?`, [
-      { text: 'İptal', style: 'cancel' },
+      { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sil',
         style: 'destructive',
@@ -80,7 +80,7 @@ export default function CampaignsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Kampanyalar</Text>
+        <Text style={styles.headerTitle}>Deals</Text>
         {isAdmin && (
           <TouchableOpacity
             style={styles.addBtn}
@@ -95,7 +95,7 @@ export default function CampaignsScreen() {
         <View style={styles.empty}>
           <Ionicons name="pricetag-outline" size={64} color={Colors.textSecondary} />
           <Text style={styles.emptyText}>
-            {isAdmin ? 'Henüz kampanya oluşturulmadı' : 'Aktif kampanyanız bulunmuyor'}
+            {isAdmin ? 'Henüz kampanya oluşturulmadı' : 'Active kampanyanız bulunmuyor'}
           </Text>
         </View>
       ) : (
@@ -178,7 +178,7 @@ function CampaignCard({
             </View>
           ) : campaign.is_active ? (
             <View style={[styles.badge, styles.badgeActive]}>
-              <Text style={styles.badgeText}>Aktif</Text>
+              <Text style={styles.badgeText}>Active</Text>
             </View>
           ) : (
             <View style={[styles.badge, styles.badgePaused]}>
@@ -277,7 +277,7 @@ function CreateCampaignModal({
           <Label text="Açıklama" />
           <TextInput style={[styles.input, { height: 80 }]} value={form.description} onChangeText={(v) => update('description', v)} placeholder="Kampanya açıklaması" placeholderTextColor={Colors.textSecondary} multiline />
 
-          <Label text="İndirim Türü" />
+          <Label text="Discount Type" />
           <View style={styles.typeRow}>
             {(['percent', 'fixed'] as const).map((t) => (
               <TouchableOpacity
@@ -286,7 +286,7 @@ function CreateCampaignModal({
                 onPress={() => update('discount_type', t)}
               >
                 <Text style={[styles.typeBtnText, form.discount_type === t && styles.typeBtnTextActive]}>
-                  {t === 'percent' ? '% Yüzde' : '₺ Sabit'}
+                  {t === 'percent' ? '% Percent' : '₺ Fixed'}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -295,10 +295,10 @@ function CreateCampaignModal({
           <Label text={`İndirim Değeri (${form.discount_type === 'percent' ? '%' : '₺'}) *`} />
           <TextInput style={styles.input} value={form.discount_value} onChangeText={(v) => update('discount_value', v)} placeholder="örn: 10" placeholderTextColor={Colors.textSecondary} keyboardType="decimal-pad" />
 
-          <Label text="Başlangıç Tarihi *" />
+          <Label text="Start Date *" />
           <TextInput style={styles.input} value={form.start_date} onChangeText={(v) => update('start_date', v)} placeholder="YYYY-MM-DD" placeholderTextColor={Colors.textSecondary} />
 
-          <Label text="Bitiş Tarihi *" />
+          <Label text="End Date *" />
           <TextInput style={styles.input} value={form.end_date} onChangeText={(v) => update('end_date', v)} placeholder="YYYY-MM-DD" placeholderTextColor={Colors.textSecondary} />
 
           <Label text="Hedef E-postalar (boş = herkese)" />
@@ -309,7 +309,7 @@ function CreateCampaignModal({
             onPress={handleCreate}
             disabled={saving}
           >
-            {saving ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.createBtnText}>Oluştur</Text>}
+            {saving ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.createBtnText}>Create</Text>}
           </TouchableOpacity>
         </ScrollView>
       </View>

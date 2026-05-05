@@ -29,15 +29,15 @@ export default function ScannerScreen() {
     const product = await ProductService.findProductByBarcode(result.data);
     if (product) {
       await CartService.addProduct(product);
-      Alert.alert('Eklendi', product.name, [{ text: 'Tamam', onPress: () => router.back() }]);
+      Alert.alert('Added', product.name, [{ text: 'OK', onPress: () => router.back() }]);
     } else {
-      Alert.alert('Bulunamadı', `Barkod: ${result.data}`, [{ text: 'Tamam', onPress: () => setScanned(false) }]);
+      Alert.alert('Not Found', `Barcode: ${result.data}`, [{ text: 'OK', onPress: () => setScanned(false) }]);
     }
   };
 
   const handleProductSelect = async (product: any) => {
     await CartService.addProduct(product);
-    Alert.alert('Eklendi', product.name, [{ text: 'Tamam', onPress: () => router.back() }]);
+    Alert.alert('Added', product.name, [{ text: 'OK', onPress: () => router.back() }]);
   };
 
   // Show product list if permission not granted or user chose list view
@@ -48,7 +48,7 @@ export default function ScannerScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
             <Ionicons name="arrow-back" size={24} color={Colors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Ürün Listesi</Text>
+          <Text style={styles.headerTitle}>Product List</Text>
           {permission && !permission.granted && !showList ? (
             <TouchableOpacity onPress={() => requestPermission()} style={styles.headerBtn}>
               <Ionicons name="camera" size={24} color={Colors.primary} />

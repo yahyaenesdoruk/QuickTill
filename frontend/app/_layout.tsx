@@ -1,10 +1,12 @@
 import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider } from '../src/context/AuthContext';
+import { LanguageProvider } from '../src/context/LanguageContext';
 
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <LanguageProvider>
       <AuthProvider>
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
@@ -21,6 +23,7 @@ export default function RootLayout() {
           <Stack.Screen name="product-list" />
         </Stack>
       </AuthProvider>
+      </LanguageProvider>
     </GestureHandlerRootView>
   );
 }

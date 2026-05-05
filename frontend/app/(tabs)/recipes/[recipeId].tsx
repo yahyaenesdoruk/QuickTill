@@ -42,10 +42,10 @@ export default function RecipeDetailScreen() {
   useEffect(() => { load(); }, [recipeId]);
 
   const handleDelete = () => {
-    Alert.alert('Tarifi Sil', 'Bu tarifi silmek istediğine emin misin?', [
-      { text: 'İptal', style: 'cancel' },
+    Alert.alert('Tarifi Delete', 'Bu tarifi silmek istediğine emin misin?', [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Sil',
+        text: 'Delete',
         style: 'destructive',
         onPress: async () => {
           try {
@@ -74,10 +74,10 @@ export default function RecipeDetailScreen() {
   };
 
   const handleDeleteComment = (commentId: string) => {
-    Alert.alert('Yorumu Sil', 'Bu yorumu silmek istediğine emin misin?', [
-      { text: 'İptal', style: 'cancel' },
+    Alert.alert('Yorumu Delete', 'Bu yorumu silmek istediğine emin misin?', [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Sil',
+        text: 'Delete',
         style: 'destructive',
         onPress: async () => {
           try {
@@ -170,7 +170,7 @@ export default function RecipeDetailScreen() {
           </Section>
 
           {/* Comments */}
-          <Section title={`Yorumlar (${recipe.comments.length})`}>
+          <Section title={`Comments (${recipe.comments.length})`}>
             {recipe.comments.length === 0 ? (
               <Text style={styles.noComments}>
                 Henüz yorum yok. İlk yorumu siz yapın!

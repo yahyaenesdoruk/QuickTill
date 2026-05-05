@@ -17,17 +17,17 @@ export default function TabsLayout() {
           backgroundColor: Colors.white,
           borderTopColor: Colors.border,
           borderTopWidth: 1,
-          height: 64,
-          paddingBottom: 10,
+          height: 80,
+          paddingBottom: 20,
           paddingTop: 6,
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Sepet',
+          title: 'Cart',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="cart" size={size} color={color} />
           ),
@@ -36,7 +36,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="shopping-list"
         options={{
-          title: 'Listeler',
+          title: 'Lists',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="list" size={size} color={color} />
           ),
@@ -45,7 +45,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="recipes"
         options={{
-          title: 'Tarifler',
+          title: 'Recipes',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="restaurant" size={size} color={color} />
           ),
@@ -54,7 +54,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="campaigns"
         options={{
-          title: 'Kampanyalar',
+          title: 'Deals',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="pricetag" size={size} color={color} />
           ),
@@ -63,7 +63,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profilim',
+          title: 'Profile',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />
           ),

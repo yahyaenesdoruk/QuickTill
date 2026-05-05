@@ -38,15 +38,15 @@ export default function RegisterScreen() {
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert('Hata', 'Şifreler eşleşmiyor');
+      Alert.alert('Error', 'Passwords do not match');
       return;
     }
     if (username.length < 3) {
-      Alert.alert('Hata', 'Kullanıcı adı en az 3 karakter olmalı');
+      Alert.alert('Error', 'Username must be at least 3 characters');
       return;
     }
     if (!/^[a-z0-9_]+$/i.test(username)) {
-      Alert.alert('Hata', 'Kullanıcı adı sadece harf, rakam ve _ içerebilir');
+      Alert.alert('Error', 'Username can only contain letters, numbers and _');
       return;
     }
     setLoading(true);
@@ -78,7 +78,7 @@ export default function RegisterScreen() {
             <Ionicons name="cart" size={40} color={Colors.white} />
           </View>
           <Text style={styles.appName}>QuickTill</Text>
-          <Text style={styles.subtitle}>Hesap Oluştur</Text>
+          <Text style={styles.subtitle}>Create Account</Text>
         </View>
 
         <View style={styles.form}>
@@ -90,14 +90,14 @@ export default function RegisterScreen() {
           />
           <InputField
             icon="at-outline"
-            placeholder="Kullanıcı Adı"
+            placeholder="Username"
             value={form.username}
             onChangeText={(v) => update('username', v.toLowerCase().replace(/\s/g, ''))}
             autoCapitalize="none"
           />
           <InputField
             icon="mail-outline"
-            placeholder="E-posta"
+            placeholder="Email"
             value={form.email}
             onChangeText={(v) => update('email', v)}
             keyboardType="email-address"
@@ -123,7 +123,7 @@ export default function RegisterScreen() {
           </View>
           <InputField
             icon="lock-closed-outline"
-            placeholder="Şifre Tekrar"
+            placeholder="Confirm Password"
             value={form.confirmPassword}
             onChangeText={(v) => update('confirmPassword', v)}
             secureTextEntry
@@ -137,7 +137,7 @@ export default function RegisterScreen() {
             {loading ? (
               <ActivityIndicator color={Colors.white} />
             ) : (
-              <Text style={styles.buttonText}>Kayıt Ol</Text>
+              <Text style={styles.buttonText}>Sign Up</Text>
             )}
           </TouchableOpacity>
 
@@ -146,8 +146,8 @@ export default function RegisterScreen() {
             onPress={() => router.replace('/(auth)/login')}
           >
             <Text style={styles.linkText}>
-              Zaten hesabın var mı?{' '}
-              <Text style={styles.linkBold}>Giriş Yap</Text>
+              Already have an account?{' '}
+              <Text style={styles.linkBold}>Sign In</Text>
             </Text>
           </TouchableOpacity>
         </View>

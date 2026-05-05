@@ -13,7 +13,6 @@ import { CartItemCard } from '../../src/components/CartItemCard';
 import { CartService } from '../../src/services/CartService';
 import { CartItem } from '../../src/models/CartItem';
 import { Colors } from '../../src/constants/Colors';
-import { Texts } from '../../src/constants/Texts';
 
 export default function CartScreen() {
   const router = useRouter();
@@ -43,10 +42,10 @@ export default function CartScreen() {
   };
 
   const handleDelete = async (item: CartItem) => {
-    Alert.alert('Ürünü Sil', `${item.name} sepetten çıkarılsın mı?`, [
-      { text: Texts.common.cancel, style: 'cancel' },
+    Alert.alert('Remove Item', `Remove ${item.name} from cart?`, [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Sil',
+        text: 'Remove',
         style: 'destructive',
         onPress: async () => {
           await CartService.removeItem(item.id);
@@ -58,7 +57,7 @@ export default function CartScreen() {
 
   const handleProceedToPayment = () => {
     if (cart.length === 0) {
-      Alert.alert('Sepet Boş', 'Lütfen sepete ürün ekleyin');
+      Alert.alert('Empty Cart', 'Please add items to your cart');
       return;
     }
     router.push('/payment');
@@ -70,7 +69,7 @@ export default function CartScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>{Texts.cart.title}</Text>
+        <Text style={styles.title}>Shopping Cart</Text>
         <TouchableOpacity
           style={styles.addBtn}
           onPress={() => router.push('/product-selector')}
@@ -82,14 +81,14 @@ export default function CartScreen() {
       {cart.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="cart-outline" size={80} color={Colors.textSecondary} />
-          <Text style={styles.emptyText}>{Texts.cart.empty}</Text>
-          <Text style={styles.emptyDesc}>{Texts.cart.emptyDesc}</Text>
+          <Text style={styles.emptyText}>Your cart is empty</Text>
+          <Text style={styles.emptyDesc}>Scan a barcode to add products</Text>
           <TouchableOpacity
             style={styles.emptyScanBtn}
             onPress={() => router.push('/scanner')}
           >
             <Ionicons name="barcode-outline" size={24} color={Colors.white} />
-            <Text style={styles.emptyScanText}>{Texts.cart.scanButton}</Text>
+            <Text style={styles.emptyScanText}>Scan Barcode</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -111,19 +110,19 @@ export default function CartScreen() {
             <View style={styles.totalRow}>
               <View>
                 <Text style={styles.itemCountText}>
-                  {itemCount} {Texts.cart.itemCount}
+                  {itemCount} {itemCount === 1 ? 'item' : 'items'}
                 </Text>
-                <Text style={styles.totalLabel}>{Texts.cart.total}</Text>
+                <Text style={styles.totalLabel}>Total</Text>
               </View>
               <Text style={styles.totalValue}>
-                {total.toFixed(2)} {Texts.common.tl}
+                {total.toFixed(2)} ₺
               </Text>
             </View>
             <TouchableOpacity
               style={styles.payBtn}
               onPress={handleProceedToPayment}
             >
-              <Text style={styles.payBtnText}>{Texts.cart.proceedToPayment}</Text>
+              <Text style={styles.payBtnText}>Proceed to Payment</Text>
               <Ionicons name="arrow-forward" size={24} color={Colors.white} />
             </TouchableOpacity>
           </View>
