@@ -32,6 +32,9 @@ def _send_email_sync(to_email: str, subject: str, html_body: str):
         print('='*50 + '\n')
         return
 
+    import re
+    plain = re.sub(r'<[^>]+>', '', html_body).strip()
+
     msg = MIMEMultipart('alternative')
     msg['From'] = smtp_user
     msg['To'] = to_email
@@ -39,14 +42,19 @@ def _send_email_sync(to_email: str, subject: str, html_body: str):
     msg.attach(MIMEText(html_body, 'html'))
 
     try:
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
             server.ehlo()
             server.starttls()
             server.login(smtp_user, smtp_password)
             server.send_message(msg)
+            print(f"[EMAIL SENT] To: {to_email}")
     except Exception as e:
         print(f"[EMAIL ERROR] {e}")
-        raise
+        print(f"\n{'='*50}")
+        print(f"[FALLBACK] To: {to_email}")
+        print(f"Subject: {subject}")
+        print(plain)
+        print('='*50 + '\n')
 
 
 async def send_email(to_email: str, subject: str, html_body: str):
