@@ -1,0 +1,271 @@
+import React, { useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  Alert,
+  TextInput,
+  Modal,
+  RefreshControl,
+} from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { ShoppingListService } from '../../../src/services/ShoppingListService';
+import { ShoppingList } from '../../../src/models/ShoppingList';
+import { Colors } from '../../../src/constants/Colors';
+
+export default function ShoppingListsScreen() {
+  const router = useRouter();
+  const [lists, setLists] = useState<ShoppingList[]>([]);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newListName, setNewListName] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async () => {
+    const data = await ShoppingListService.getLists();
+    setLists(data);
+    setRefreshing(false);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
+  const handleCreate = async () => {
+    if (!newListName.trim()) {
+      Alert.alert('Hata', 'Liste adı boş olamaz');
+      return;
+    }
+    await ShoppingListService.createList(newListName.trim());
+    setNewListName('');
+    setShowCreate(false);
+    load();
+  };
+
+  const handleDelete = (id: string, name: string) => {
+    Alert.alert('Listeyi Sil', `"${name}" silinsin mi?`, [
+      { text: 'İptal', style: 'cancel' },
+      {
+        text: 'Sil',
+        style: 'destructive',
+        onPress: async () => {
+          await ShoppingListService.deleteList(id);
+          load();
+        },
+      },
+    ]);
+  };
+
+  const getProgress = (list: ShoppingList) => {
+    if (list.items.length === 0) return null;
+    const done = list.items.filter((i) => i.checked).length;
+    return { done, total: list.items.length };
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Alışveriş Listeleri</Text>
+        <TouchableOpacity style={styles.addBtn} onPress={() => setShowCreate(true)}>
+          <Ionicons name="add" size={24} color={Colors.white} />
+        </TouchableOpacity>
+      </View>
+
+      {lists.length === 0 ? (
+        <View style={styles.empty}>
+          <Ionicons name="list-outline" size={64} color={Colors.textSecondary} />
+          <Text style={styles.emptyTitle}>Henüz liste yok</Text>
+          <Text style={styles.emptyDesc}>
+            Yeni bir liste oluşturmak için + butonuna bas
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={lists}
+          keyExtractor={(l) => l.id}
+          contentContainerStyle={{ padding: 16, gap: 12 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => { setRefreshing(true); load(); }}
+              colors={[Colors.primary]}
+            />
+          }
+          renderItem={({ item }) => {
+            const progress = getProgress(item);
+            return (
+              <TouchableOpacity
+                style={styles.listCard}
+                onPress={() =>
+                  router.push(`/(tabs)/shopping-list/${item.id}`)
+                }
+                onLongPress={() => handleDelete(item.id, item.name)}
+              >
+                <View style={styles.listIcon}>
+                  <Ionicons name="list" size={28} color={Colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.listName}>{item.name}</Text>
+                  {progress ? (
+                    <>
+                      <Text style={styles.listMeta}>
+                        {progress.done}/{progress.total} tamamlandı
+                      </Text>
+                      <View style={styles.progressBg}>
+                        <View
+                          style={[
+                            styles.progressFill,
+                            {
+                              width: `${(progress.done / progress.total) * 100}%`,
+                            },
+                          ]}
+                        />
+                      </View>
+                    </>
+                  ) : (
+                    <Text style={styles.listMeta}>Boş liste</Text>
+                  )}
+                </View>
+                <TouchableOpacity
+                  style={styles.deleteBtn}
+                  onPress={() => handleDelete(item.id, item.name)}
+                >
+                  <Ionicons name="trash-outline" size={18} color={Colors.error} />
+                </TouchableOpacity>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      )}
+
+      <Modal visible={showCreate} transparent animationType="slide" onRequestClose={() => setShowCreate(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Yeni Liste</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Liste adı (örn: Haftalık, Piknik)"
+              placeholderTextColor={Colors.textSecondary}
+              value={newListName}
+              onChangeText={setNewListName}
+              autoFocus
+              onSubmitEditing={handleCreate}
+            />
+            <View style={styles.modalBtns}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => { setShowCreate(false); setNewListName(''); }}
+              >
+                <Text style={styles.modalCancelText}>İptal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalCreateBtn} onPress={handleCreate}>
+                <Text style={styles.modalCreateText}>Oluştur</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.surface },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: Colors.white,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  headerTitle: { fontSize: 24, fontWeight: '700', color: Colors.text },
+  addBtn: {
+    backgroundColor: Colors.primary,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 8 },
+  emptyTitle: { fontSize: 18, fontWeight: '600', color: Colors.text },
+  emptyDesc: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center' },
+  listCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+    borderRadius: 14,
+    padding: 16,
+    gap: 14,
+    elevation: 1,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+  },
+  listIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: `${Colors.primary}18`,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  listName: { fontSize: 16, fontWeight: '700', color: Colors.text, marginBottom: 4 },
+  listMeta: { fontSize: 12, color: Colors.textSecondary, marginBottom: 6 },
+  progressBg: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.border,
+    overflow: 'hidden',
+  },
+  progressFill: { height: '100%', backgroundColor: Colors.primary, borderRadius: 2 },
+  deleteBtn: { padding: 4 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalBox: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    gap: 16,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: Colors.text },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: Colors.text,
+  },
+  modalBtns: { flexDirection: 'row', gap: 10 },
+  modalCancelBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  modalCancelText: { fontSize: 15, fontWeight: '600', color: Colors.textSecondary },
+  modalCreateBtn: {
+    flex: 1,
+    backgroundColor: Colors.primary,
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  modalCreateText: { fontSize: 15, fontWeight: '700', color: Colors.white },
+});
