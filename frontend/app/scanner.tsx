@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
+import { useCameraPermissions } from 'expo-camera';
+import BarcodeCamera from '../src/components/BarcodeCamera';
 import { ProductService } from '../src/services/ProductService';
 import { CartService } from '../src/services/CartService';
 import { Colors } from '../src/constants/Colors';
@@ -54,20 +55,19 @@ export default function ScannerScreen() {
     setTimeout(() => router.back(), 1400);
   };
 
-  // Camera barcode scan
-  const handleBarCodeScanned = async (result: BarcodeScanningResult) => {
+  // Called by both BarcodeCamera (camera scan) and manual entry
+  const handleCode = async (code: string) => {
     if (scanned) return;
     setScanned(true);
-    const product = await ProductService.findProductByBarcode(result.data);
+    const product = await ProductService.findProductByBarcode(code);
     if (product) {
       await addAndGoBack(product);
     } else {
-      showToast(`Not found: ${result.data}`, 'error', 2000);
+      showToast(`No product found: ${code}`, 'error', 2000);
       setTimeout(() => setScanned(false), 2200);
     }
   };
 
-  // Manual barcode input
   const handleManualSearch = async () => {
     const code = manualCode.trim();
     if (!code) return;
@@ -77,11 +77,10 @@ export default function ScannerScreen() {
     if (product) {
       await addAndGoBack(product);
     } else {
-      showToast(`No product found for: ${code}`, 'error', 2200);
+      showToast(`No product found: ${code}`, 'error', 2200);
     }
   };
 
-  // Product list select
   const handleProductSelect = async (product: any) => {
     await addAndGoBack(product);
   };
@@ -89,7 +88,7 @@ export default function ScannerScreen() {
   const tabItems: { key: Tab; label: string; icon: string }[] = [
     { key: 'scan', label: 'Camera', icon: 'camera-outline' },
     { key: 'manual', label: 'Enter Code', icon: 'keypad-outline' },
-    { key: 'list', label: 'Product List', icon: 'list-outline' },
+    { key: 'list', label: 'Products', icon: 'list-outline' },
   ];
 
   return (
@@ -112,7 +111,10 @@ export default function ScannerScreen() {
           <TouchableOpacity
             key={t.key}
             style={[styles.tab, activeTab === t.key && styles.tabActive]}
-            onPress={() => setActiveTab(t.key)}
+            onPress={() => {
+              setActiveTab(t.key);
+              setScanned(false);
+            }}
           >
             <Ionicons
               name={t.icon as any}
@@ -129,11 +131,8 @@ export default function ScannerScreen() {
       {/* ── CAMERA TAB ── */}
       {activeTab === 'scan' && (
         <View style={{ flex: 1 }}>
-          {!permission ? (
-            <View style={styles.centered}>
-              <Text style={styles.message}>Requesting camera permission...</Text>
-            </View>
-          ) : !permission.granted ? (
+          {/* On web, BarcodeCamera handles its own permission via browser API */}
+          {Platform.OS !== 'web' && !permission?.granted ? (
             <View style={styles.centered}>
               <Ionicons name="camera-off-outline" size={64} color={Colors.textSecondary} />
               <Text style={styles.message}>Camera permission required</Text>
@@ -146,35 +145,30 @@ export default function ScannerScreen() {
             </View>
           ) : (
             <>
-              <CameraView
-                style={StyleSheet.absoluteFillObject}
-                facing="back"
-                barcodeScannerSettings={{
-                  barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39', 'qr'],
-                }}
-                onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+              <BarcodeCamera
+                onScanned={handleCode}
+                active={!scanned && activeTab === 'scan'}
               />
               {/* Scan frame */}
-              <View style={styles.overlay}>
+              <View style={styles.overlay} pointerEvents="none">
                 <View style={styles.scanArea}>
                   <View style={[styles.corner, styles.topLeft]} />
                   <View style={[styles.corner, styles.topRight]} />
                   <View style={[styles.corner, styles.bottomLeft]} />
                   <View style={[styles.corner, styles.bottomRight]} />
                 </View>
+                <Text style={styles.instruction}>
+                  {scanned ? 'Processing...' : 'Align the barcode within the frame'}
+                </Text>
               </View>
-              {/* Instruction */}
-              <View style={styles.instructionContainer}>
-                {!scanned && (
-                  <Text style={styles.instruction}>Align the barcode within the frame</Text>
-                )}
-                {scanned && !toast && (
+              {scanned && !toast && (
+                <View style={styles.instructionContainer}>
                   <TouchableOpacity style={styles.rescanButton} onPress={() => setScanned(false)}>
                     <Ionicons name="refresh" size={20} color={Colors.white} />
                     <Text style={styles.rescanText}>Scan Again</Text>
                   </TouchableOpacity>
-                )}
-              </View>
+                </View>
+              )}
             </>
           )}
         </View>
@@ -210,8 +204,6 @@ export default function ScannerScreen() {
               </TouchableOpacity>
             </View>
           </View>
-
-          {/* Recently added hint */}
           <TouchableOpacity onPress={() => setActiveTab('list')} style={styles.switchLink}>
             <Ionicons name="list-outline" size={16} color={Colors.primary} />
             <Text style={styles.switchLinkText}>Browse all products →</Text>
@@ -297,22 +289,18 @@ const styles = StyleSheet.create({
   tabActive: { borderBottomColor: Colors.primary },
   tabText: { fontSize: 12, fontWeight: '600', color: Colors.textSecondary },
   tabTextActive: { color: Colors.primary },
-  // Camera
-  overlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center' },
-  scanArea: { width: 260, height: 200, position: 'relative' },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 24,
+  },
+  scanArea: { width: 260, height: 180, position: 'relative' },
   corner: { position: 'absolute', width: 36, height: 36, borderColor: Colors.primary },
   topLeft: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4 },
   topRight: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4 },
   bottomLeft: { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4 },
   bottomRight: { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4 },
-  instructionContainer: {
-    position: 'absolute',
-    bottom: 60,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    gap: 12,
-  },
   instruction: {
     fontSize: 14,
     fontWeight: '600',
@@ -322,6 +310,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     overflow: 'hidden',
+  },
+  instructionContainer: {
+    position: 'absolute',
+    bottom: 60,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
   },
   rescanButton: {
     flexDirection: 'row',
@@ -333,7 +328,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   rescanText: { fontSize: 14, fontWeight: '600', color: Colors.white },
-  // Permission
   message: { fontSize: 15, color: Colors.textSecondary, textAlign: 'center' },
   permBtn: {
     backgroundColor: Colors.primary,
@@ -350,7 +344,6 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   switchLinkText: { fontSize: 14, color: Colors.primary, fontWeight: '600' },
-  // Manual
   manualContainer: { flex: 1, padding: 24, gap: 16, alignItems: 'center' },
   manualCard: {
     width: '100%',
@@ -386,7 +379,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // Product list
   list: { padding: 16 },
   productCard: {
     flexDirection: 'row',
@@ -406,7 +398,6 @@ const styles = StyleSheet.create({
   productBarcode: { fontSize: 12, color: Colors.textSecondary, marginTop: 3 },
   productRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   productPrice: { fontSize: 17, fontWeight: '700', color: Colors.primary },
-  // Toast
   toast: {
     position: 'absolute',
     bottom: 40,
