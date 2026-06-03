@@ -14,11 +14,12 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useCameraPermissions } from 'expo-camera';
 import BarcodeCamera from '../src/components/BarcodeCamera';
+import HardwareScannerTab from '../src/components/HardwareScannerTab';
 import { ProductService } from '../src/services/ProductService';
 import { CartService } from '../src/services/CartService';
 import { Colors } from '../src/constants/Colors';
 
-type Tab = 'scan' | 'manual' | 'list';
+type Tab = 'scan' | 'manual' | 'list' | 'hardware';
 
 export default function ScannerScreen() {
   const router = useRouter();
@@ -89,6 +90,7 @@ export default function ScannerScreen() {
     { key: 'scan', label: 'Camera', icon: 'camera-outline' },
     { key: 'manual', label: 'Enter Code', icon: 'keypad-outline' },
     { key: 'list', label: 'Products', icon: 'list-outline' },
+    { key: 'hardware', label: 'Device', icon: 'hardware-chip-outline' },
   ];
 
   return (
@@ -237,6 +239,11 @@ export default function ScannerScreen() {
             )}
           />
         )
+      )}
+
+      {/* ── DEVICE SCANNER TAB ── */}
+      {activeTab === 'hardware' && (
+        <HardwareScannerTab onCode={handleCode} />
       )}
 
       {/* Toast */}

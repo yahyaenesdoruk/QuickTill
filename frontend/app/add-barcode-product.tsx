@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useCameraPermissions } from 'expo-camera';
 import BarcodeCamera from '../src/components/BarcodeCamera';
+import HardwareScannerTab from '../src/components/HardwareScannerTab';
 import { ProductService } from '../src/services/ProductService';
 import { Colors } from '../src/constants/Colors';
 
@@ -22,6 +23,7 @@ export default function AddBarcodeProductScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [showDevice, setShowDevice] = useState(false);
   const [barcode, setBarcode] = useState('');
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
@@ -182,6 +184,29 @@ export default function AddBarcodeProductScreen() {
     );
   }
 
+  // Device scanner (ESP32-CAM via WebSocket)
+  if (showDevice) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => setShowDevice(false)} style={styles.headerBtn}>
+            <Ionicons name="arrow-back" size={24} color={Colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Device Scanner</Text>
+          <View style={{ width: 44 }} />
+        </View>
+        <HardwareScannerTab
+          onCode={(code) => {
+            setBarcode(code);
+            setScanned(true);
+            setShowDevice(false);
+            setShowForm(true);
+          }}
+        />
+      </View>
+    );
+  }
+
   // Camera scanner
   return (
     <View style={styles.container}>
@@ -196,9 +221,14 @@ export default function AddBarcodeProductScreen() {
           <Ionicons name="arrow-back" size={24} color={Colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitleWhite}>Scan Barcode</Text>
-        <TouchableOpacity onPress={() => setShowForm(true)} style={styles.headerBtn}>
-          <Ionicons name="create-outline" size={24} color={Colors.white} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row' }}>
+          <TouchableOpacity onPress={() => setShowDevice(true)} style={styles.headerBtn}>
+            <Ionicons name="hardware-chip-outline" size={22} color={Colors.white} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setShowForm(true)} style={styles.headerBtn}>
+            <Ionicons name="create-outline" size={24} color={Colors.white} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Scan frame */}
