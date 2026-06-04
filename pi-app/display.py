@@ -1,19 +1,19 @@
 # QuickTill Pi App — Ekran Yöneticisi
-from luma.core.interface.serial import spi
+from luma.core.interface.serial import bitbang
 from luma.lcd.device import ili9341
 from luma.core.render import canvas
 from PIL import ImageFont, ImageDraw, Image
 import os
 from config import *
 
-# Ekranı başlat
+# Ekranı başlat (bitbang SPI — spidev gerekmez)
 def init_display():
-    serial = spi(
-        port=DISPLAY_SPI_PORT,
-        device=DISPLAY_SPI_DEVICE,
-        gpio_DC=DISPLAY_DC_PIN,
-        gpio_RST=DISPLAY_RST_PIN,
-        bus_speed_hz=DISPLAY_SPEED,
+    serial = bitbang(
+        SCLK=DISPLAY_SCLK_PIN,
+        SDA=DISPLAY_MOSI_PIN,
+        CE=DISPLAY_CS_PIN,
+        DC=DISPLAY_DC_PIN,
+        RST=DISPLAY_RST_PIN,
     )
     device = ili9341(serial, rotate=DISPLAY_ROTATE)
     return device
