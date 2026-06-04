@@ -12,6 +12,7 @@ from database import connect_db, close_db
 from auth_routes import router as auth_router
 from recipe_routes import router as recipe_router
 from campaign_routes import router as campaign_router
+from product_routes import router as product_router
 
 app = FastAPI(title="QuickTill API")
 
@@ -26,6 +27,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(recipe_router)
 app.include_router(campaign_router)
+app.include_router(product_router)
 
 
 @app.on_event("startup")
