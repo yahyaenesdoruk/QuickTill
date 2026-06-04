@@ -1,0 +1,6 @@
+luma.lcd
+RPi.GPIO
+spidev
+pillow
+websocket-client
+evdev
