@@ -123,7 +123,7 @@ def run_picamera() -> None:
     # Pi Camera Module 2 (IMX219): video modu daha hızlı, barkod için yeterli
     config = picam2.create_video_configuration(
         main={"size": (640, 480), "format": "RGB888"},
-        controls={"FrameRate": 20, "AfMode": 0}  # Manuel odak (sabit mesafe için idealdir)
+        controls={"FrameRate": 20}  # AfMode kaldırıldı: Pi Kamera 2 sabit odaklıdır
     )
     picam2.configure(config)
     picam2.start()
