@@ -59,8 +59,26 @@ if not DEV:
         from luma.lcd.device import ili9341 as _ILI9341
         from luma.core.interface.serial import spi as _SPI
         from PIL import Image as _Image
+        import lgpio as _lgpio
+
+        class _GpioAdapter:
+            """RPi.GPIO uyumlu lgpio sarmalayıcısı (luma.core için)."""
+            BCM = 11; OUT = 0
+            def __init__(self):
+                self._h = None; self._pins = []
+            def setmode(self, _m):
+                self._h = _lgpio.gpiochip_open(0)
+            def setup(self, pin, _d):
+                _lgpio.gpio_claim_output(self._h, pin); self._pins.append(pin)
+            def output(self, pin, val):
+                _lgpio.gpio_write(self._h, pin, int(val))
+            def cleanup(self):
+                for p in self._pins: _lgpio.gpio_free(self._h, p)
+                if self._h is not None: _lgpio.gpiochip_close(self._h)
+
         _serial = _SPI(port=0, device=0, gpio_DC=24, gpio_RST=25,
-                       bus_speed_hz=32000000, gpio_BACKLIGHT=None)
+                       bus_speed_hz=32000000, gpio_BACKLIGHT=None,
+                       gpio=_GpioAdapter())
         _disp = _ILI9341(_serial, width=240, height=320, rotate=0, bgr=False)
         print('[display] ILI9341 hazir')
     except Exception as _e:
