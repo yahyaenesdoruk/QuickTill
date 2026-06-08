@@ -14,5 +14,5 @@ export interface Receipt {
   items: ReceiptItem[];
   total: number;
   itemCount: number;
-  paymentMethod: 'NFC' | 'Simulated';
+  paymentMethod: 'NFC' | 'Simulated' | 'Pi';
 }

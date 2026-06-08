@@ -300,3 +300,63 @@ async def change_password(
         {"$set": {"password_hash": hash_password(req.new_password)}},
     )
     return {"message": "Şifre başarıyla değiştirildi"}
+
+
+# ── QR Hesap Bağlama ──────────────────────────────────────────────────────────
+
+import secrets as _secrets
+
+
+class RedeemTokenRequest(BaseModel):
+    token: str
+
+
+@router.post("/link-token")
+async def create_link_token(current_user=Depends(get_current_user)):
+    """
+    Giriş yapmış kullanıcı için 5 dakika geçerli tek kullanımlık QR token üretir.
+    Pi ekranındaki QR kodu ile hesaba hızlı giriş için kullanılır.
+    """
+    db = get_db()
+    token = _secrets.token_urlsafe(12)
+    # Aynı kullanıcının önceki token'ını sil, yeni token yaz (upsert)
+    await db.link_tokens.replace_one(
+        {"user_id": current_user["id"]},
+        {
+            "user_id": current_user["id"],
+            "token": token,
+            "expires_at": datetime.utcnow() + timedelta(minutes=5),
+        },
+        upsert=True,
+    )
+    return {"token": token, "expires_in": 300}
+
+
+@router.post("/redeem-link-token")
+async def redeem_link_token(req: RedeemTokenRequest):
+    """
+    Pi'nin taradığı QR token'ını doğrular, bir kez kullanılabilir.
+    Geçerliyse kullanıcı bilgisi + 30 günlük JWT döndürür.
+    """
+    db = get_db()
+    record = await db.link_tokens.find_one({"token": req.token})
+    if not record:
+        raise HTTPException(status_code=404, detail="Token bulunamadı")
+    if datetime.utcnow() > record["expires_at"]:
+        await db.link_tokens.delete_one({"token": req.token})
+        raise HTTPException(status_code=410, detail="Token süresi dolmuş")
+    user = await db.users.find_one({"id": record["user_id"]})
+    if not user:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+    # Tek kullanım — token'ı hemen sil
+    await db.link_tokens.delete_one({"token": req.token})
+    jwt_token = create_token(user["id"], user["role"])
+    return {
+        "token": jwt_token,
+        "user": {
+            "id": user["id"],
+            "email": user["email"],
+            "name": user["name"],
+            "username": user["username"],
+        },
+    }

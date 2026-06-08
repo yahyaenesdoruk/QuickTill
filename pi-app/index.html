@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=240, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>QuickTill</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --primary:  #2563eb;
+      --success:  #16a34a;
+      --error:    #dc2626;
+      --bg:       #f1f5f9;
+      --white:    #ffffff;
+      --text:     #0f172a;
+      --text2:    #64748b;
+      --border:   #e2e8f0;
+    }
+
+    html, body {
+      width: 240px; height: 320px;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+      touch-action: manipulation;
+    }
+
+    /* ── Screens ── */
+    .screen {
+      position: absolute; top: 0; left: 0;
+      width: 240px; height: 320px;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+      transition: transform 0.2s ease;
+    }
+    .screen.hidden { transform: translateX(260px); pointer-events: none; }
+
+    /* ── Header ── */
+    .header {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      height: 44px; padding: 0 10px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .header h1 { font-size: 15px; font-weight: 700; color: var(--text); }
+    .back-btn {
+      background: none; border: none;
+      font-size: 20px; cursor: pointer; color: var(--primary);
+      padding: 8px 6px 8px 0; line-height: 1;
+    }
+    .icon-btn {
+      width: 34px; height: 34px; border-radius: 17px;
+      background: var(--primary); border: none;
+      color: var(--white); font-size: 22px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      line-height: 1;
+    }
+
+    /* ── Cart list ── */
+    .cart-list {
+      flex: 1; overflow-y: auto; padding: 6px;
+    }
+    .cart-item {
+      background: var(--white); border-radius: 10px;
+      padding: 9px 8px; margin-bottom: 5px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .cart-item-info { flex: 1; min-width: 0; }
+    .cart-item-name {
+      font-size: 12px; font-weight: 600; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .cart-item-price { font-size: 10px; color: var(--text2); margin-top: 2px; }
+    .qty-controls { display: flex; align-items: center; gap: 4px; }
+    .qty-btn {
+      width: 26px; height: 26px; border-radius: 7px;
+      border: 1.5px solid var(--primary);
+      background: var(--white); color: var(--primary);
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .qty-btn.del { border-color: var(--error); color: var(--error); }
+    .qty-num { font-size: 13px; font-weight: 700; min-width: 14px; text-align: center; }
+    .item-total { font-size: 12px; font-weight: 700; color: var(--primary); min-width: 38px; text-align: right; }
+
+    /* ── Empty ── */
+    .empty {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 8px; color: var(--text2);
+    }
+    .empty .ei { font-size: 44px; }
+    .empty p { font-size: 12px; text-align: center; line-height: 1.5; }
+
+    /* ── Footer ── */
+    .footer {
+      background: var(--white); border-top: 1px solid var(--border);
+      padding: 8px; flex-shrink: 0;
+    }
+    .total-row {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 7px;
+    }
+    .total-label { font-size: 12px; color: var(--text2); }
+    .total-value { font-size: 20px; font-weight: 700; color: var(--primary); }
+
+    .btn {
+      width: 100%; height: 38px; border-radius: 9px; border: none;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+      margin-bottom: 5px;
+    }
+    .btn:last-child { margin-bottom: 0; }
+    .btn-primary { background: var(--primary); color: var(--white); }
+    .btn-success { background: var(--success); color: var(--white); }
+    .btn-outline {
+      background: var(--white); color: var(--primary);
+      border: 1.5px solid var(--primary);
+    }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Scanner ── */
+    .scanner-content {
+      flex: 1; padding: 10px;
+      display: flex; flex-direction: column; gap: 8px;
+      overflow-y: auto;
+    }
+    .status-card {
+      background: var(--white); border-radius: 12px;
+      padding: 14px; text-align: center;
+      display: flex; flex-direction: column; align-items: center; gap: 7px;
+    }
+    .status-icon { font-size: 36px; }
+    .status-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .status-sub { font-size: 11px; color: var(--text2); line-height: 1.5; }
+    .status-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--success); display: inline-block; margin-right: 5px;
+    }
+
+    .found-card {
+      background: #f0fdf4; border: 1.5px solid #86efac;
+      border-radius: 10px; padding: 10px; display: none;
+    }
+    .found-card.show { display: block; }
+    .found-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+    .found-price { font-size: 17px; font-weight: 700; color: var(--success); }
+    .found-qty { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+    .not-found-card {
+      background: #fff5f5; border: 1.5px solid #fca5a5;
+      border-radius: 10px; padding: 10px; display: none; text-align: center;
+    }
+    .not-found-card.show { display: block; }
+    .not-found-text { font-size: 12px; color: var(--error); font-weight: 600; }
+
+    .manual-section {
+      background: var(--white); border-radius: 10px; padding: 10px;
+    }
+    .manual-label { font-size: 11px; font-weight: 600; color: var(--text2); margin-bottom: 6px; }
+    .input-row { display: flex; gap: 5px; }
+    input[type=number], input[type=text] {
+      flex: 1; height: 36px;
+      border: 1.5px solid var(--border); border-radius: 8px;
+      padding: 0 9px; font-size: 13px; color: var(--text);
+      background: var(--white); outline: none;
+    }
+    input:focus { border-color: var(--primary); }
+    .input-btn {
+      width: 36px; height: 36px;
+      background: var(--primary); border: none;
+      border-radius: 8px; color: var(--white); font-size: 16px; cursor: pointer;
+    }
+
+    /* ── Checkout ── */
+    .checkout-content {
+      flex: 1; padding: 10px; overflow-y: auto;
+    }
+    .checkout-item {
+      display: flex; justify-content: space-between;
+      padding: 7px 0; border-bottom: 1px solid var(--border);
+    }
+    .checkout-name { font-size: 12px; color: var(--text); }
+    .checkout-detail { font-size: 12px; color: var(--text2); }
+    .checkout-total {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 0 4px;
+    }
+    .checkout-total-label { font-size: 14px; font-weight: 700; color: var(--text); }
+    .checkout-total-value { font-size: 22px; font-weight: 700; color: var(--primary); }
+
+    /* ── Product Add screen ── */
+    .add-content {
+      flex: 1; padding: 10px;
+      display: flex; flex-direction: column; gap: 8px;
+      overflow-y: auto;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 4px; }
+    .form-label { font-size: 11px; font-weight: 600; color: var(--text2); }
+    .form-input {
+      height: 36px; border: 1.5px solid var(--border); border-radius: 8px;
+      padding: 0 9px; font-size: 13px; color: var(--text); outline: none;
+      background: var(--white);
+    }
+    .form-input:focus { border-color: var(--primary); }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 8px; left: 8px; right: 8px;
+      padding: 9px 12px; border-radius: 9px;
+      font-size: 12px; font-weight: 600; color: var(--white); text-align: center;
+      z-index: 999; opacity: 0; transform: translateY(8px);
+      transition: all 0.2s ease; pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.success { background: var(--success); }
+    .toast.error   { background: var(--error); }
+    .toast.info    { background: var(--primary); }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════ CART SCREEN ═══════════════════ -->
+<div id="screen-cart" class="screen">
+  <div class="header">
+    <h1>🛒 QuickTill</h1>
+    <button class="icon-btn" title="Barkod Tara" onclick="goTo('scanner')">＋</button>
+  </div>
+
+  <div id="cart-list" class="cart-list"></div>
+
+  <div class="footer">
+    <div class="total-row">
+      <span class="total-label" id="cart-count">0 ürün</span>
+      <span id="cart-total" class="total-value">0.00 ₺</span>
+    </div>
+    <button class="btn btn-primary" onclick="goTo('scanner')">📷 Barkod Tara</button>
+    <button class="btn btn-success" onclick="goTo('checkout')">💳 Ödeme Yap</button>
+  </div>
+</div>
+
+<!-- ═══════════════════ SCANNER SCREEN ═══════════════════ -->
+<div id="screen-scanner" class="screen hidden">
+  <div class="header">
+    <button class="back-btn" onclick="goTo('cart')">←</button>
+    <h1>Barkod Tara</h1>
+    <div style="width:34px"></div>
+  </div>
+
+  <div class="scanner-content">
+    <div class="status-card">
+      <div class="status-icon" id="ws-icon">⏳</div>
+      <div class="status-title" id="ws-title">Bağlanılıyor...</div>
+      <div class="status-sub" id="ws-sub">Barkod servisi bekleniyor</div>
+      <button class="btn btn-outline" id="ws-retry"
+        style="display:none;width:auto;padding:0 14px;height:32px;font-size:12px"
+        onclick="wsConnect()">↺ Tekrar Dene</button>
+    </div>
+
+    <div class="found-card" id="found-card">
+      <div class="found-name" id="found-name">—</div>
+      <div class="found-price" id="found-price">—</div>
+      <div class="found-qty" id="found-qty"></div>
+    </div>
+
+    <div class="not-found-card" id="not-found-card">
+      <div class="not-found-text" id="not-found-text">Ürün bulunamadı</div>
+    </div>
+
+    <div class="manual-section">
+      <div class="manual-label">Manuel Barkod Girişi</div>
+      <div class="input-row">
+        <input type="number" id="manual-input"
+          placeholder="8691234567890" inputmode="numeric">
+        <button class="input-btn" onclick="manualSearch()">→</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ CHECKOUT SCREEN ═══════════════════ -->
+<div id="screen-checkout" class="screen hidden">
+  <div class="header">
+    <button class="back-btn" onclick="goTo('cart')">←</button>
+    <h1>Ödeme</h1>
+    <div style="width:34px"></div>
+  </div>
+
+  <div class="checkout-content">
+    <div id="checkout-items"></div>
+    <div class="checkout-total">
+      <span class="checkout-total-label">Toplam</span>
+      <span id="checkout-total-value" class="checkout-total-value">0.00 ₺</span>
+    </div>
+  </div>
+
+  <div class="footer">
+    <button class="btn btn-success" onclick="confirmPayment()">✓ Ödemeyi Onayla</button>
+    <button class="btn btn-outline" onclick="goTo('cart')">← Geri Dön</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+//  QuickTill Pi Kiosk Uygulaması
+//  Backend: https://quicktill-backend.onrender.com/api  (Chrome ile ortak)
+//  Barkod:  ws://localhost:8765  (yerel barcode_service.py)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const API    = 'https://quicktill-backend.onrender.com/api';
+const WS_URL = 'ws://localhost:8765';
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let cart = JSON.parse(localStorage.getItem('qt_pi_cart') || '[]');
+let ws   = null;
+let wsOk = false;
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function goTo(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  document.getElementById('screen-' + name).classList.remove('hidden');
+
+  if (name === 'cart')     { renderCart(); }
+  if (name === 'scanner')  { resetScanFeedback(); if (!wsOk) wsConnect(); }
+  if (name === 'checkout') {
+    if (cart.length === 0) { toast('Sepet boş!', 'error'); goTo('cart'); return; }
+    renderCheckout();
+  }
+}
+
+// ── Cart ──────────────────────────────────────────────────────────────────────
+function saveCart() { localStorage.setItem('qt_pi_cart', JSON.stringify(cart)); }
+
+function addToCart(product) {
+  const ex = cart.find(i => i.barcode === product.barcode);
+  if (ex) { ex.qty++; }
+  else    { cart.push({ id: product.id, barcode: product.barcode, name: product.name, price: product.price, qty: 1 }); }
+  saveCart();
+}
+
+function updateQty(barcode, delta) {
+  const item = cart.find(i => i.barcode === barcode);
+  if (!item) return;
+  item.qty += delta;
+  if (item.qty <= 0) cart = cart.filter(i => i.barcode !== barcode);
+  saveCart();
+  renderCart();
+}
+
+function getTotal() { return cart.reduce((s, i) => s + i.price * i.qty, 0); }
+function getCount() { return cart.reduce((s, i) => s + i.qty, 0); }
+
+function renderCart() {
+  const list  = document.getElementById('cart-list');
+  const total = document.getElementById('cart-total');
+  const count = document.getElementById('cart-count');
+
+  total.textContent = getTotal().toFixed(2) + ' ₺';
+  const n = getCount();
+  count.textContent = n + ' ürün';
+
+  if (cart.length === 0) {
+    list.innerHTML = `
+      <div class="empty">
+        <div class="ei">🛒</div>
+        <p>Sepetiniz boş.<br>Barkod tarayarak ürün ekleyin.</p>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = cart.map(item => `
+    <div class="cart-item">
+      <div class="cart-item-info">
+        <div class="cart-item-name">${esc(item.name)}</div>
+        <div class="cart-item-price">${item.price.toFixed(2)} ₺ / adet</div>
+      </div>
+      <div class="qty-controls">
+        <button class="qty-btn del" onclick="updateQty('${esc(item.barcode)}', -1)">−</button>
+        <span class="qty-num">${item.qty}</span>
+        <button class="qty-btn"     onclick="updateQty('${esc(item.barcode)}',  1)">+</button>
+      </div>
+      <span class="item-total">${(item.price * item.qty).toFixed(2)}₺</span>
+    </div>`).join('');
+}
+
+function renderCheckout() {
+  document.getElementById('checkout-items').innerHTML =
+    cart.map(item => `
+      <div class="checkout-item">
+        <span class="checkout-name">${esc(item.name)} ×${item.qty}</span>
+        <span class="checkout-detail">${(item.price * item.qty).toFixed(2)} ₺</span>
+      </div>`).join('');
+  document.getElementById('checkout-total-value').textContent = getTotal().toFixed(2) + ' ₺';
+}
+
+function confirmPayment() {
+  cart = []; saveCart();
+  toast('✓ Ödeme tamamlandı! Teşekkürler.', 'success');
+  setTimeout(() => goTo('cart'), 1600);
+}
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+function wsConnect() {
+  if (ws) { try { ws.close(); } catch(_){} }
+  setWs('connecting');
+  ws = new WebSocket(WS_URL);
+  ws.onopen    = ()  => { wsOk = true;  setWs('ready'); };
+  ws.onmessage = (e) => {
+    try {
+      const d = JSON.parse(e.data);
+      if (d.barcode) handleBarcode(d.barcode);
+    } catch(_) {}
+  };
+  ws.onerror = () => { wsOk = false; setWs('error'); };
+  ws.onclose = () => { wsOk = false; setWs('error'); };
+}
+
+function setWs(state) {
+  const icon  = document.getElementById('ws-icon');
+  const title = document.getElementById('ws-title');
+  const sub   = document.getElementById('ws-sub');
+  const retry = document.getElementById('ws-retry');
+  retry.style.display = 'none';
+
+  if (state === 'connecting') {
+    icon.textContent  = '⏳';
+    title.textContent = 'Bağlanılıyor...';
+    sub.textContent   = 'Barkod servisi bekleniyor';
+  } else if (state === 'ready') {
+    icon.textContent = '✅';
+    title.innerHTML  = '<span class="status-dot"></span>Cihaz Hazır';
+    sub.textContent  = 'Barkodu okutun — otomatik sepete eklenecek';
+  } else {
+    icon.textContent  = '⚠️';
+    title.textContent = 'Bağlantı Yok';
+    sub.textContent   = 'barcode_service.py çalışmıyor.\nManuel giriş yapabilirsiniz.';
+    retry.style.display = 'flex';
+  }
+}
+
+// ── Barcode / Product Lookup ──────────────────────────────────────────────────
+async function handleBarcode(code) {
+  resetScanFeedback();
+  try {
+    const res = await fetch(`${API}/products/barcode/${encodeURIComponent(code)}`);
+    if (res.status === 404) { showNotFound(code); return; }
+    if (!res.ok) throw new Error('API hatası');
+    const product = await res.json();
+    addToCart(product);
+    showFound(product);
+  } catch (e) {
+    toast('Bağlantı hatası — internet var mı?', 'error');
+  }
+}
+
+function showFound(product) {
+  const existing = cart.find(i => i.barcode === product.barcode);
+  const qty = existing ? existing.qty : 1;
+  document.getElementById('found-name').textContent  = product.name;
+  document.getElementById('found-price').textContent = product.price.toFixed(2) + ' ₺';
+  document.getElementById('found-qty').textContent   = 'Sepette: ' + qty + ' adet';
+  document.getElementById('found-card').classList.add('show');
+  document.getElementById('not-found-card').classList.remove('show');
+  toast('✓ ' + product.name + ' eklendi', 'success');
+  setTimeout(resetScanFeedback, 3000);
+}
+
+function showNotFound(code) {
+  document.getElementById('not-found-text').textContent = 'Ürün bulunamadı: ' + code;
+  document.getElementById('not-found-card').classList.add('show');
+  document.getElementById('found-card').classList.remove('show');
+  toast('Ürün bulunamadı: ' + code, 'error');
+  setTimeout(resetScanFeedback, 3000);
+}
+
+function resetScanFeedback() {
+  document.getElementById('found-card').classList.remove('show');
+  document.getElementById('not-found-card').classList.remove('show');
+}
+
+async function manualSearch() {
+  const input = document.getElementById('manual-input');
+  const code  = input.value.trim();
+  if (!code) return;
+  input.value = '';
+  await handleBarcode(code);
+}
+
+document.getElementById('manual-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') manualSearch();
+});
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let toastTimer = null;
+function toast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className   = `toast show ${type}`;
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+// ── Utility ───────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+renderCart();
+goTo('cart');
+wsConnect();   // Arka planda bağlantıyı başlat
+</script>
+</body>
+</html>

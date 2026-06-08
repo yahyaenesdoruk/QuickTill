@@ -1,75 +1,115 @@
 #!/bin/bash
 # ============================================================
-#  QuickTill Device Setup Script — Raspberry Pi 4
-#  Run once after a fresh Raspberry Pi OS install
-#  Usage: bash setup.sh
+#  QuickTill Device Setup Script — Raspberry Pi
+#  Sıfırdan kurulum için bir kez çalıştır
+#  Kullanım: bash device/setup.sh [--barcode-mode usb|picamera|esp32cam]
 # ============================================================
 set -e
 
 QUICKTILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 DEVICE_DIR="$QUICKTILL_DIR/device"
+BARCODE_MODE="usb"   # Varsayılan: USB barkod okuyucu
+
+# Argüman ayrıştırma
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --barcode-mode) BARCODE_MODE="$2"; shift ;;
+        *) echo "Bilinmeyen parametre: $1"; exit 1 ;;
+    esac
+    shift
+done
 
 echo "======================================================"
-echo " QuickTill Device Setup"
-echo " Project: $QUICKTILL_DIR"
+echo " QuickTill Cihaz Kurulumu"
+echo " Proje: $QUICKTILL_DIR"
+echo " Barkod modu: $BARCODE_MODE"
 echo "======================================================"
 
-# ── 1. System packages ────────────────────────────────────
-echo "[1/7] Installing system packages..."
+# ── 1. Sistem paketleri ───────────────────────────────────
+echo "[1/8] Sistem paketleri kuruluyor..."
 sudo apt-get update -y
 sudo apt-get install -y \
     python3-pip \
     libzbar0 \
     cmake \
     git \
-    chromium-browser \
-    unclutter \
-    xdotool \
-    tslib \
+    libsdl2-dev \
+    libsdl2-ttf-dev \
+    libsdl2-image-dev \
+    fonts-dejavu \
     evtest \
-    xinput
+    tslib
 
-# ── 2. Python packages ────────────────────────────────────
-echo "[2/7] Installing Python packages..."
-pip3 install --break-system-packages \
-    pyzbar \
-    opencv-python-headless \
-    websockets \
-    numpy
+# ── 2. Python paketleri ───────────────────────────────────
+echo "[2/8] Python paketleri kuruluyor (mod: $BARCODE_MODE)..."
 
-# ── 3. Enable SPI ─────────────────────────────────────────
-echo "[3/7] Enabling SPI interface..."
-if ! grep -q "^dtparam=spi=on" /boot/config.txt 2>/dev/null && \
-   ! grep -q "^dtparam=spi=on" /boot/firmware/config.txt 2>/dev/null; then
-    CONFIG_FILE="/boot/firmware/config.txt"
-    [ -f /boot/config.txt ] && CONFIG_FILE="/boot/config.txt"
-    echo "dtparam=spi=on" | sudo tee -a "$CONFIG_FILE"
-    echo "  → SPI enabled in $CONFIG_FILE"
-else
-    echo "  → SPI already enabled"
+# Her modda gereken: pygame (native uygulama), requests (API), websockets, evdev (dokunmatik)
+pip3 install --break-system-packages pygame requests websockets evdev
+
+if [ "$BARCODE_MODE" = "esp32cam" ]; then
+    pip3 install --break-system-packages pyzbar opencv-python-headless numpy
+elif [ "$BARCODE_MODE" = "picamera" ]; then
+    # picamera2 apt üzerinden kurulmalı (pip ile çalışmaz)
+    sudo apt-get install -y python3-picamera2 || \
+        echo "  [uyarı] python3-picamera2 bulunamadı, libcamera deneniyor..."
+    sudo apt-get install -y libcamera-apps || true
+    pip3 install --break-system-packages pyzbar numpy
+elif [ "$BARCODE_MODE" = "usb" ]; then
+    pip3 install --break-system-packages evdev
 fi
 
-# ── 4. Display config (240×320 for ILI9341) ───────────────
-echo "[4/7] Configuring 240x320 display output..."
+# ── 3. SPI etkinleştir ────────────────────────────────────
+echo "[3/8] SPI arayüzü etkinleştiriliyor..."
 CONFIG_FILE="/boot/firmware/config.txt"
 [ -f /boot/config.txt ] && CONFIG_FILE="/boot/config.txt"
 
-if ! grep -q "hdmi_cvt=240 320" "$CONFIG_FILE" 2>/dev/null; then
-    sudo tee -a "$CONFIG_FILE" > /dev/null <<'EOF'
+if ! grep -q "^dtparam=spi=on" "$CONFIG_FILE" 2>/dev/null; then
+    echo "dtparam=spi=on" | sudo tee -a "$CONFIG_FILE"
+    echo "  → SPI $CONFIG_FILE dosyasına eklendi"
+else
+    echo "  → SPI zaten etkin"
+fi
 
-# QuickTill ILI9341 display (240x320)
+# XPT2046 dokunmatik sürücüsü (ads7846) — her kurulumda eklenir
+if ! grep -q "dtoverlay=ads7846" "$CONFIG_FILE" 2>/dev/null; then
+    echo "dtoverlay=ads7846,cs=1,penirq=17,speed=1000000,keep_vref_on=1,swapxy=0,pmax=255,xohms=150" \
+        | sudo tee -a "$CONFIG_FILE"
+    echo "  → XPT2046 (ads7846) dokunmatik sürücüsü eklendi"
+else
+    echo "  → XPT2046 zaten etkin"
+fi
+
+# Pi Camera Module 2 (IMX219) etkinleştir
+if [ "$BARCODE_MODE" = "picamera" ]; then
+    # Raspberry Pi OS Bullseye ve sonrası için dtoverlay kullan (start_x artık gerekmiyor)
+    if ! grep -q "dtoverlay=imx219" "$CONFIG_FILE" 2>/dev/null; then
+        echo "dtoverlay=imx219" | sudo tee -a "$CONFIG_FILE"
+        echo "gpu_mem=128"      | sudo tee -a "$CONFIG_FILE"
+        echo "  → Pi Camera Module 2 (IMX219) $CONFIG_FILE dosyasına eklendi"
+    else
+        echo "  → Pi Camera Module 2 zaten etkin"
+    fi
+fi
+
+# ── 4. Ekran yapılandırması (240×320 ILI9341) ─────────────
+echo "[4/8] 240x320 ekran yapılandırılıyor..."
+
+if ! grep -q "hdmi_cvt=240 320" "$CONFIG_FILE" 2>/dev/null; then
+    sudo tee -a "$CONFIG_FILE" > /dev/null <<'EOFCFG'
+
+# QuickTill ILI9341 ekran (240x320)
 hdmi_group=2
 hdmi_mode=87
 hdmi_cvt=240 320 60 1 0 0 0
 hdmi_force_hotplug=1
-EOF
-    echo "  → Display config added"
+EOFCFG
+    echo "  → Ekran yapılandırması eklendi"
 else
-    echo "  → Display config already present"
+    echo "  → Ekran yapılandırması zaten mevcut"
 fi
 
-# ── 5. fbcp-ili9341 (framebuffer → SPI LCD) ───────────────
-echo "[5/7] Building fbcp-ili9341..."
+# ── 5. fbcp-ili9341 derleme (HDMI → SPI LCD köprüsü) ──────
+echo "[5/8] fbcp-ili9341 derleniyor..."
 if [ ! -f /usr/local/bin/fbcp-ili9341 ]; then
     cd /tmp
     [ -d fbcp-ili9341 ] && rm -rf fbcp-ili9341
@@ -83,28 +123,28 @@ if [ ! -f /usr/local/bin/fbcp-ili9341 ]; then
           -DBACKLIGHT_CONTROL=ON \
           -DSTATISTICS=0 \
           ..
-    make -j4
+    make -j$(nproc)
     sudo cp fbcp-ili9341 /usr/local/bin/
-    echo "  → fbcp-ili9341 installed to /usr/local/bin/"
+    echo "  → fbcp-ili9341 /usr/local/bin/ dizinine kuruldu"
 else
-    echo "  → fbcp-ili9341 already installed"
+    echo "  → fbcp-ili9341 zaten kurulu"
 fi
 
-# ── 6. Systemd services ────────────────────────────────────
-echo "[6/7] Installing systemd services..."
+# ── 6. Systemd servisleri ─────────────────────────────────
+echo "[6/8] Systemd servisleri kuruluyor..."
 CURRENT_USER=$(whoami)
 
-# barcode service
+# --- Barkod servisi ---
 sudo tee /etc/systemd/system/quicktill-barcode.service > /dev/null <<EOF
 [Unit]
-Description=QuickTill Barcode Service (ESP32-CAM → WebSocket)
+Description=QuickTill Barkod Servisi ($BARCODE_MODE modu)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 User=$CURRENT_USER
 WorkingDirectory=$DEVICE_DIR
-ExecStart=/usr/bin/python3 $DEVICE_DIR/barcode_service.py
+ExecStart=/usr/bin/python3 $DEVICE_DIR/barcode_service.py --mode $BARCODE_MODE
 Restart=always
 RestartSec=5
 
@@ -112,10 +152,10 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
-# fbcp-ili9341 display service
+# --- fbcp-ili9341 ekran servisi ---
 sudo tee /etc/systemd/system/quicktill-display.service > /dev/null <<'EOF'
 [Unit]
-Description=QuickTill ILI9341 Display (fbcp-ili9341)
+Description=QuickTill ILI9341 Ekran (fbcp-ili9341)
 After=multi-user.target
 
 [Service]
@@ -127,62 +167,64 @@ RestartSec=2
 WantedBy=multi-user.target
 EOF
 
-# kiosk browser service
+# --- Native pygame kiosk servisi (browser YOK, X11 YOK) ---
+PI_APP_DIR="$QUICKTILL_DIR/pi-app"
 sudo tee /etc/systemd/system/quicktill-kiosk.service > /dev/null <<EOF
 [Unit]
-Description=QuickTill Kiosk Browser
-After=quicktill-display.service graphical.target
-Requires=graphical.target
+Description=QuickTill Kiosk (pygame native)
+After=quicktill-display.service quicktill-barcode.service
+Wants=quicktill-display.service quicktill-barcode.service
 
 [Service]
 User=$CURRENT_USER
-Environment=DISPLAY=:0
-Environment=XAUTHORITY=/home/$CURRENT_USER/.Xauthority
-ExecStartPre=/bin/sleep 5
-ExecStart=/usr/bin/chromium-browser \\
-    --kiosk \\
-    --no-sandbox \\
-    --disable-infobars \\
-    --disable-session-crashed-bubble \\
-    --disable-restore-session-state \\
-    --noerrdialogs \\
-    --window-size=240,320 \\
-    --window-position=0,0 \\
-    https://quick-till-one.vercel.app
+WorkingDirectory=$PI_APP_DIR
+Environment=SDL_VIDEODRIVER=fbcon
+Environment=SDL_FBDEV=/dev/fb0
+Environment=SDL_NOMOUSE=1
+ExecStartPre=/bin/sleep 3
+ExecStart=/usr/bin/python3 $PI_APP_DIR/app.py
 Restart=always
-RestartSec=10
+RestartSec=5
 
 [Install]
-WantedBy=graphical.target
+WantedBy=multi-user.target
 EOF
 
 sudo systemctl daemon-reload
 sudo systemctl enable quicktill-display quicktill-barcode quicktill-kiosk
-echo "  → Services enabled"
+echo "  → Servisler etkinleştirildi"
 
-# ── 7. Auto-login and hide cursor ─────────────────────────
-echo "[7/7] Configuring auto-login and kiosk tweaks..."
-# Hide mouse cursor when idle
-if ! grep -q "unclutter" /etc/xdg/lxsession/LXDE-pi/autostart 2>/dev/null; then
-    echo "@unclutter -idle 0.5 -root" | sudo tee -a /etc/xdg/lxsession/LXDE-pi/autostart || true
+# ── 7. Konsol otomatik giriş (X11 gerekmez) ──────────────
+echo "[7/8] Konsol otomatik giriş ayarlanıyor..."
+# pygame fbcon modunda çalışmak için sadece konsol girişi yeterli
+sudo raspi-config nonint do_boot_behaviour B2 2>/dev/null || true
+echo "  → Konsol otomatik giriş (B2) ayarlandı"
+
+# ── 8. USB barkod okuyucu grubu (evdev erişimi) ───────────
+echo "[8/8] USB barkod okuyucu erişim izni ayarlanıyor..."
+if [ "$BARCODE_MODE" = "usb" ]; then
+    sudo usermod -aG input "$CURRENT_USER" 2>/dev/null || true
+    echo "  → '$CURRENT_USER' kullanıcısı 'input' grubuna eklendi"
 fi
 
 echo ""
 echo "======================================================"
-echo " Setup complete!"
+echo " Kurulum tamamlandı!"
 echo ""
-echo " Next steps:"
-echo "   1. Edit device/barcode_service.py"
-echo "      → Set ESP32_STREAM_URL to your ESP32-CAM IP"
+echo " Sonraki adımlar:"
+if [ "$BARCODE_MODE" = "esp32cam" ]; then
+echo "   1. device/barcode_service.py içinde ESP32_STREAM_URL'i ayarla"
+fi
 echo ""
-echo "   2. Wire ILI9341 to GPIO (see README.md for pinout)"
+echo "   2. ILI9341 ekranı GPIO'ya bağla (bkz. device/README.md)"
 echo ""
-echo "   3. Flash ESP32-CAM with CameraWebServer example"
-echo "      (Arduino IDE → Examples → ESP32 → Camera)"
+echo "   3. Yeniden başlat: sudo reboot"
 echo ""
-echo "   4. Reboot: sudo reboot"
+echo "   4. Kontrol et:"
+echo "      sudo systemctl status quicktill-kiosk    # pygame uygulaması"
+echo "      sudo systemctl status quicktill-barcode  # barkod servisi"
+echo "      sudo systemctl status quicktill-display  # fbcp-ili9341"
 echo ""
-echo "   5. After reboot, test barcode service:"
-echo "      sudo systemctl status quicktill-barcode"
-echo "      python3 device/barcode_service.py  (manual test)"
+echo "   5. Masaüstünde test (Pi olmadan):"
+echo "      python3 pi-app/app.py --dev"
 echo "======================================================"

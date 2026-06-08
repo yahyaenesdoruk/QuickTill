@@ -144,4 +144,22 @@ export class AuthService {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Hata');
   }
+
+  /**
+   * Pi ekranında QR ile hızlı hesap girişi için 5 dakika geçerli token üretir.
+   * Dönen token ile QR kod oluşturulur: QTLINK:{token}
+   */
+  static async createLinkToken(): Promise<string> {
+    const token = await this.getToken();
+    const res = await fetchWithTimeout(`${API_BASE_URL}/auth/link-token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Token oluşturulamadı');
+    return data.token;
+  }
 }

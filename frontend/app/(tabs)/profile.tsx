@@ -10,6 +10,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Pressable,
+  Modal,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -40,6 +42,12 @@ export default function ProfileScreen() {
 
   // Receipts
   const [receipts, setReceipts] = useState<Receipt[]>([]);
+
+  // QR Link
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [linkToken, setLinkToken] = useState<string | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
+  const [qrCountdown, setQrCountdown] = useState(300);
 
   useEffect(() => {
     if (tab === 'receipts') loadReceipts();
@@ -104,6 +112,41 @@ export default function ProfileScreen() {
       Alert.alert('Error', e.message);
     }
   };
+
+  const fetchLinkToken = async () => {
+    setQrLoading(true);
+    try {
+      const t = await AuthService.createLinkToken();
+      setLinkToken(t);
+      setQrCountdown(300);
+    } catch (e: any) {
+      Alert.alert('Hata', e.message);
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!showQrModal) return;
+    const timer = setInterval(() => {
+      setQrCountdown(prev => {
+        if (prev <= 1) {
+          fetchLinkToken();
+          return 300;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [showQrModal]);
+
+  const openQrModal = () => {
+    setShowQrModal(true);
+    fetchLinkToken();
+  };
+
+  const formatCountdown = (s: number) =>
+    `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
   const initials = user?.name
     ? user.name
@@ -258,6 +301,13 @@ export default function ProfileScreen() {
             </View>
           )}
 
+          {/* QR Link */}
+          <TouchableOpacity style={styles.qrLinkBtn} onPress={openQrModal}>
+            <Ionicons name="qr-code-outline" size={20} color={Colors.primary} />
+            <Text style={styles.qrLinkBtnText}>Pi'ye QR ile Bağlan</Text>
+            <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary} />
+          </TouchableOpacity>
+
           {/* Logout */}
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={20} color={Colors.error} />
@@ -306,6 +356,51 @@ export default function ProfileScreen() {
           />
         )
       )}
+
+      {/* QR Link Modal */}
+      <Modal
+        visible={showQrModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowQrModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Pi'ye QR ile Bağlan</Text>
+            <Text style={styles.modalSubtitle}>
+              Pi kamerasını bu QR koda gösterin.{'\n'}Hesabınıza otomatik giriş yapılır.
+            </Text>
+
+            {qrLoading || !linkToken ? (
+              <View style={styles.qrPlaceholder}>
+                <ActivityIndicator color={Colors.primary} size="large" />
+                <Text style={[styles.modalSubtitle, { marginTop: 12 }]}>QR kod oluşturuluyor...</Text>
+              </View>
+            ) : (
+              <Image
+                source={{
+                  uri: `https://api.qrserver.com/v1/create-qr-code/?data=QTLINK:${linkToken}&size=220x220&margin=10&format=png`,
+                }}
+                style={styles.qrImage}
+                resizeMode="contain"
+              />
+            )}
+
+            <Text style={styles.qrCountdown}>
+              {!qrLoading && linkToken
+                ? `⏱ ${formatCountdown(qrCountdown)} sonra yenilenir`
+                : ' '}
+            </Text>
+
+            <TouchableOpacity
+              style={styles.modalCloseBtn}
+              onPress={() => { setShowQrModal(false); setLinkToken(null); }}
+            >
+              <Text style={styles.modalCloseBtnText}>Kapat</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -447,4 +542,54 @@ const styles = StyleSheet.create({
     minWidth: 44,
     minHeight: 44,
   },
+  qrLinkBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+  },
+  qrLinkBtnText: { flex: 1, fontSize: 14, fontWeight: '600', color: Colors.primary },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCard: {
+    backgroundColor: Colors.white,
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    width: 300,
+    gap: 10,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: Colors.text },
+  modalSubtitle: { fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 18 },
+  qrImage: { width: 220, height: 220, borderRadius: 8 },
+  qrPlaceholder: {
+    width: 220,
+    height: 220,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: 8,
+  },
+  qrCountdown: { fontSize: 12, color: Colors.textSecondary, minHeight: 18 },
+  modalCloseBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 40,
+    marginTop: 6,
+  },
+  modalCloseBtnText: { fontSize: 14, fontWeight: '700', color: Colors.white },
 });
