@@ -265,46 +265,55 @@ def _ws_loop():
 
 threading.Thread(target=_ws_loop, daemon=True).start()
 
-# ── Dokunmatik (evdev — XPT2046 / ads7846) ───────────────────────────────────
+# ── Dokunmatik (XPT2046 — spidev CS1 ile doğrudan) ───────────────────────────
 def _touch_loop():
     """
-    XPT2046 dokunmatik olaylarını okuyup pygame'e iletir.
-    Sadece Pi'de çalışır; masaüstü testinde yoksayılır.
+    XPT2046 dokunmatik okuyucu.
+    ads7846 kernel sürücüsü yerine spidev CS1 kullanır.
+    Kalibrasyon için X_MIN/MAX, Y_MIN/MAX değerlerini ayarla.
     """
+    import spidev as _spi_mod
+    spi = _spi_mod.SpiDev()
     try:
-        import evdev
-        from evdev import ecodes as EC
-    except ImportError:
+        spi.open(0, 1)              # SPI0 CS1 — XPT2046
+        spi.max_speed_hz = 1_000_000
+        spi.mode = 0
+    except Exception as e:
+        print(f'[touch] HATA: {e}')
         return
 
-    def find_touch():
-        for path in evdev.list_devices():
-            try:
-                dev = evdev.InputDevice(path)
-                caps = dev.capabilities()
-                if EC.EV_ABS in caps:
-                    return dev
-            except Exception:
-                pass
-        return None
+    def raw(cmd):
+        r = spi.xfer2([cmd, 0x00, 0x00])
+        return ((r[1] << 8) | r[2]) >> 3   # 12-bit
 
-    dev = find_touch()
-    if not dev:
-        return
+    # Kalibrasyon — ekran köşelerine dokunarak ham min/max değerlerini bul
+    X_MIN, X_MAX = 300, 3750
+    Y_MIN, Y_MAX = 300, 3750
 
-    ai_x = dev.absinfo(EC.ABS_X)
-    ai_y = dev.absinfo(EC.ABS_Y)
-    tx = ty = 0
+    def to_px(v, lo, hi, sz):
+        return max(0, min(sz - 1, int((v - lo) / max(hi - lo, 1) * sz)))
 
-    for ev in dev.read_loop():
-        if ev.type == EC.EV_ABS:
-            if ev.code == EC.ABS_X:
-                tx = int((ev.value - ai_x.min) / max(ai_x.max - ai_x.min, 1) * W)
-            elif ev.code == EC.ABS_Y:
-                ty = int((ev.value - ai_y.min) / max(ai_y.max - ai_y.min, 1) * H)
-        elif ev.type == EC.EV_KEY and ev.code == EC.BTN_TOUCH:
-            kind = pygame.MOUSEBUTTONDOWN if ev.value else pygame.MOUSEBUTTONUP
-            pygame.event.post(pygame.event.Event(kind, {'pos': (tx, ty), 'button': 1}))
+    touching  = False
+    last_pos  = (0, 0)
+
+    while True:
+        z = raw(0xB0)               # Z1 basınç
+        if z > 200:
+            x_raw = raw(0xD0)       # X kanalı
+            y_raw = raw(0x90)       # Y kanalı
+            sx = to_px(x_raw, X_MIN, X_MAX, W)
+            sy = to_px(y_raw, Y_MIN, Y_MAX, H)
+            last_pos = (sx, sy)
+            if not touching:
+                pygame.event.post(pygame.event.Event(
+                    pygame.MOUSEBUTTONDOWN, {'pos': last_pos, 'button': 1}))
+                touching = True
+        else:
+            if touching:
+                pygame.event.post(pygame.event.Event(
+                    pygame.MOUSEBUTTONUP, {'pos': last_pos, 'button': 1}))
+                touching = False
+        time.sleep(0.02)    # 50 Hz
 
 if not DEV:
     threading.Thread(target=_touch_loop, daemon=True).start()
