@@ -130,6 +130,11 @@ _TX_MIN, _TX_MAX = 542, 3613
 _TY_MIN, _TY_MAX = 437, 3782
 _touching = False
 
+# ── Kamera (scanner ekranı canlı önizleme + barkod) ──────────────────────────
+_cam_frame   = None          # son kamera karesi (numpy RGB888)
+_cam_lock    = threading.Lock()
+_cam_running = False         # kamera thread aktif mi?
+
 def _font(size, bold=False):
     for name in ['DejaVuSans', 'DejaVu Sans', 'FreeSans', None]:
         try:
@@ -284,6 +289,48 @@ def _ws_loop():
 threading.Thread(target=_ws_loop, daemon=True).start()
 
 
+# ── Kamera thread (scanner ekranına canlı görüntü + barkod okuma) ─────────────
+def _camera_thread():
+    global _cam_frame, _cam_running
+    try:
+        from picamera2 import Picamera2
+        from pyzbar import pyzbar as _pyzbar
+        import numpy as _cnp
+    except ImportError as _ie:
+        print(f'[camera] Import hatasi: {_ie}')
+        _cam_running = False
+        return
+
+    _cam2 = Picamera2()
+    _cfg  = _cam2.create_video_configuration(
+        main={'size': (640, 480), 'format': 'RGB888'},
+        controls={'FrameRate': 15}
+    )
+    _cam2.configure(_cfg)
+    _cam2.start()
+    print('[camera] Baslatildi')
+    _last_barcode_time = {}
+    try:
+        while _cam_running:
+            _fr = _cam2.capture_array()
+            with _cam_lock:
+                _cam_frame = _fr
+            # barkod çöz
+            _gray = (_fr[...,0]*0.299 + _fr[...,1]*0.587 + _fr[...,2]*0.114).astype('uint8')
+            for _r in _pyzbar.decode(_gray):
+                _code = _r.data.decode('utf-8').strip()
+                _now  = time.monotonic()
+                if _now - _last_barcode_time.get(_code, 0) > 1.5:
+                    _last_barcode_time[_code] = _now
+                    event_queue.put({'t': 'barcode', 'code': _code})
+            time.sleep(0.067)   # ~15 fps
+    finally:
+        _cam2.stop()
+        with _cam_lock:
+            _cam_frame = None
+        print('[camera] Durduruldu')
+
+
 # ── Çizim yardımcıları ────────────────────────────────────────────────────────
 def fill_rect(color, rect, r=0):
     pygame.draw.rect(screen, color, rect, border_radius=r)
@@ -410,9 +457,10 @@ USER_LOGOUT_BTN  = (116, 10, 58, 24)   # header'da "× Çıkış" butonu
 
 # ── Ekran: TARAYICI ───────────────────────────────────────────────────────────
 BACK_BTN  = (0, 0, 44, HDR)
-RETRY_BTN = (W//2 - 44, 148, 88, 26)
-MANUAL_IN = (10, 252, W-56, 34)
-MANUAL_GO = (W-44, 252, 36, 34)
+_CAM_H    = 186                        # kamera önizleme yüksekliği (44..230)
+_MNL_Y    = HDR + _CAM_H + 4          # 234 — manuel giriş başlangıcı
+MANUAL_IN = (6,  _MNL_Y + 20, W-38, 28)
+MANUAL_GO = (W-30, _MNL_Y + 20, 26, 28)
 
 def draw_scanner():
     screen.fill(BG)
@@ -423,48 +471,48 @@ def draw_scanner():
     text('<', F14B, P, 10, 14)
     text('Barkod Tara', F15B, TX, W//2, 14, 'center')
 
-    # ── Durum kartı
-    fill_rect(WH, (8, 52, W-16, 90), 10)
-    if ws_status == 'ready':
-        text('Cihaz Hazir', F14B, TX, W//2, 66, 'center')
-        pygame.draw.circle(screen, SU, (W//2 - 44, 98), 4)
-        text('Barkodu okutun', F12, T2, W//2 - 36, 92)
-    elif ws_status == 'connecting':
-        text('Baglaniliyor...', F14B, TX, W//2, 66, 'center')
-        text('Barkod servisi bekleniyor', F11, T2, W//2, 94, 'center')
+    # ── Canlı kamera önizlemesi
+    with _cam_lock:
+        _cf = _cam_frame
+    if _cf is not None:
+        try:
+            from PIL import Image as _PI
+            _pil  = _PI.fromarray(_cf, 'RGB').resize((W, _CAM_H))
+            _surf = pygame.image.fromstring(_pil.tobytes(), (W, _CAM_H), 'RGB')
+            screen.blit(_surf, (0, HDR))
+        except Exception:
+            fill_rect((20, 20, 20), (0, HDR, W, _CAM_H))
     else:
-        text('Baglanti Yok', F14B, ER, W//2, 66, 'center')
-        text('Manuel giris yapabilirsiniz', F11, T2, W//2, 88, 'center')
-        button('Tekrar Dene', RETRY_BTN, P)
+        fill_rect((20, 20, 20), (0, HDR, W, _CAM_H))
+        text('Kamera baslatiliyor...', F12, T2, W//2, HDR + _CAM_H//2, 'center')
 
-    # ── Tarama sonucu
+    # ── Tarama sonucu overlay (kamera görüntüsü üstünde)
     if scan_result:
         if scan_result['ok']:
             p = scan_result['product']
-            fill_rect(OK_BG, (8, 150, W-16, 60), 8)
-            stroke_rect(OK_BD, (8, 150, W-16, 60), 1, 8)
-            text(p['name'], F13B, TX, 14, 157, max_w=W-28)
-            text(f"{p['price']:.2f} TL", F16, SU, 14, 175)
+            fill_rect(OK_BG, (4, HDR+4, W-8, 40), 8)
+            stroke_rect(OK_BD, (4, HDR+4, W-8, 40), 1, 8)
+            text(p['name'], F13B, TX, 10, HDR+8, max_w=W-20)
             qty = next((i['qty'] for i in cart if i['barcode'] == p['barcode']), 0)
-            if qty:
-                text(f'Sepette: {qty} adet', F11, T2, W-14, 176, 'right')
+            txt = f"{p['price']:.2f} TL" + (f"  (Sepette: {qty})" if qty else '')
+            text(txt, F12, SU, 10, HDR+24, max_w=W-20)
         else:
-            fill_rect(NO_BG, (8, 150, W-16, 42), 8)
-            stroke_rect(NO_BD, (8, 150, W-16, 42), 1, 8)
-            text('Urun bulunamadi', F13B, ER, W//2, 157, 'center')
-            text(str(scan_result.get('code', '')), F11, T2, W//2, 175, 'center')
+            fill_rect(NO_BG, (4, HDR+4, W-8, 32), 8)
+            stroke_rect(NO_BD, (4, HDR+4, W-8, 32), 1, 8)
+            text('Urun bulunamadi', F13B, ER, W//2, HDR+8, 'center')
+            text(str(scan_result.get('code', '')), F11, T2, W//2, HDR+22, 'center')
 
-    # ── Manuel giriş
-    my = 236
-    fill_rect(WH, (8, my, W-16, 64), 8)
-    text('Manuel Giris', F12, T2, 14, my + 8)
+    # ── Manuel giriş (alt şerit)
+    fill_rect(WH, (0, _MNL_Y, W, H - _MNL_Y))
+    pygame.draw.line(screen, BD, (0, _MNL_Y), (W, _MNL_Y), 1)
+    text('Manuel:', F12, T2, 8, _MNL_Y + 6)
     box_c = P if kbd_active else BD
-    fill_rect(WH, MANUAL_IN, 7); stroke_rect(box_c, MANUAL_IN, 2, 7)
+    fill_rect(WH, MANUAL_IN, 6); stroke_rect(box_c, MANUAL_IN, 2, 6)
     disp = kbd_text if kbd_text else '8691234567890'
     col  = TX if kbd_text else T2
-    text(disp, F13, col, MANUAL_IN[0]+8, MANUAL_IN[1]+9, max_w=MANUAL_IN[2]-12)
-    fill_rect(P, MANUAL_GO, 7)
-    text('>', F14B, WH, MANUAL_GO[0]+18, MANUAL_GO[1]+9, 'center')
+    text(disp, F12, col, MANUAL_IN[0]+5, MANUAL_IN[1]+6, max_w=MANUAL_IN[2]-8)
+    fill_rect(P, MANUAL_GO, 6)
+    text('>', F14B, WH, MANUAL_GO[0] + MANUAL_GO[2]//2, MANUAL_GO[1]+6, 'center')
 
 # ── Ekran: ÖDEME ──────────────────────────────────────────────────────────────
 CONFIRM_BTN = (8, H-70, W-16, 32)
@@ -515,9 +563,15 @@ def draw_toast():
 # ── Ekran geçişi ──────────────────────────────────────────────────────────────
 def go(name):
     global screen_name, scan_result, kbd_text, kbd_active, cart_scroll, co_scroll
+    global _cam_running
     screen_name = name
     if name == 'scanner':
         scan_result = None; kbd_text = ''; kbd_active = False
+        if not DEV and not _cam_running:
+            _cam_running = True
+            threading.Thread(target=_camera_thread, daemon=True).start()
+    else:
+        _cam_running = False   # thread kendisi durur
     if name == 'cart':
         cart_scroll = 0
     if name == 'checkout':
