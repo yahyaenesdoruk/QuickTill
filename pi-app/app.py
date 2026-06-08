@@ -120,7 +120,11 @@ if not DEV:
         print(f'[touch] HATA: {_te}')
 _TX_MIN, _TX_MAX = 542, 3613
 _TY_MIN, _TY_MAX = 437, 3782
-_touching = False
+_touching       = False
+_touch_dragging = False
+_touch_sx       = 0
+_touch_sy       = 0
+_touch_scroll0  = 0
 
 # ── Fontlar ───────────────────────────────────────────────────────────────────
 def _font(size, bold=False):
@@ -719,7 +723,7 @@ while running:
         except Exception:
             pass
 
-    # XPT2046 dokunmatik okuma
+    # XPT2046 dokunmatik okuma (tap + kaydırma)
     if _tspi is not None:
         try:
             def _tr(c):
@@ -730,8 +734,29 @@ while running:
                 _sx = max(0,min(W-1,int((_tr(0xD0)-_TX_MIN)/(_TX_MAX-_TX_MIN)*W)))
                 _sy = max(0,min(H-1,int((_TY_MAX-_tr(0x90))/(_TY_MAX-_TY_MIN)*H)))
                 if not _touching:
-                    _touching = True
-                    _tp = (_sx,_sy)
+                    # İlk temas — başlangıç noktasını kaydet
+                    _touching      = True
+                    _touch_sx      = _sx
+                    _touch_sy      = _sy
+                    _touch_dragging = False
+                    _touch_scroll0 = (cart_scroll if screen_name == 'cart'
+                                      else prod_scroll if screen_name == 'add' and add_tab == 'products'
+                                      else co_scroll)
+                else:
+                    # Devam eden temas — kaydırma kontrolü
+                    _dy = _touch_sy - _sy   # yukarı kaydırma pozitif
+                    if abs(_dy) > 8:
+                        _touch_dragging = True
+                        if screen_name == 'cart':
+                            cart_scroll = max(0, _touch_scroll0 + _dy)
+                        elif screen_name == 'add' and add_tab == 'products':
+                            prod_scroll = max(0, _touch_scroll0 + _dy)
+                        elif screen_name == 'checkout':
+                            co_scroll   = max(0, _touch_scroll0 + _dy)
+            else:
+                if _touching and not _touch_dragging:
+                    # Bırakıldı ve sürükleme yoktu → tap işle
+                    _tp = (_touch_sx, _touch_sy)
                     if screen_name == 'cart':
                         if hit(CART_ADD_BTN,_tp) or hit(CART_SCAN_BTN,_tp): go('add')
                         elif hit(CART_PAY_BTN,_tp): go('checkout')
@@ -740,7 +765,7 @@ while running:
                         else:
                             for _rg in _cart_items_y():
                                 if hit(_rg['plus'], _tp):  cart_update(_rg['barcode'], 1);  break
-                                if hit(_rg['minus'],_tp): cart_update(_rg['barcode'],-1); break
+                                if hit(_rg['minus'],_tp):  cart_update(_rg['barcode'],-1); break
                     elif screen_name == 'add':
                         if hit(ADD_BACK,_tp):   go('cart')
                         elif hit(TAB_PROD,_tp): add_tab='products'; scan_result=None
@@ -762,8 +787,8 @@ while running:
                                     args=(_snap,pi_token),daemon=True).start()
                             cart.clear(); cart_scroll=0
                             toast('Odeme tamamlandi!',SU); go('cart')
-            else:
-                _touching = False
+                _touching       = False
+                _touch_dragging = False
         except Exception:
             pass
 
