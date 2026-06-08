@@ -286,9 +286,9 @@ def _touch_loop():
         r = spi.xfer2([cmd, 0x00, 0x00])
         return ((r[1] << 8) | r[2]) >> 3   # 12-bit
 
-    # Kalibrasyon — ekran köşelerine dokunarak ham min/max değerlerini bul
-    X_MIN, X_MAX = 300, 3750
-    Y_MIN, Y_MAX = 300, 3750
+    # Kalibrasyon (köşe testinden ölçüldü)
+    X_MIN, X_MAX = 542, 3613    # sol → sağ
+    Y_MIN, Y_MAX = 437, 3782    # alt → üst (Y ekseni ters)
 
     def to_px(v, lo, hi, sz):
         return max(0, min(sz - 1, int((v - lo) / max(hi - lo, 1) * sz)))
@@ -302,7 +302,7 @@ def _touch_loop():
             x_raw = raw(0xD0)       # X kanalı
             y_raw = raw(0x90)       # Y kanalı
             sx = to_px(x_raw, X_MIN, X_MAX, W)
-            sy = to_px(y_raw, Y_MIN, Y_MAX, H)
+            sy = to_px(y_raw, Y_MAX, Y_MIN, H)  # Y ters çevrildi
             last_pos = (sx, sy)
             if not touching:
                 pygame.event.post(pygame.event.Event(
