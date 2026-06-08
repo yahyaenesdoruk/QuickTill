@@ -301,7 +301,20 @@ def _camera_thread():
         _cam_running = False
         return
 
-    _cam2 = Picamera2()
+    # Kamera meşgulse (barcode servisi yeni kapandıysa) birkaç kez dene
+    _cam2 = None
+    for _attempt in range(6):
+        try:
+            _cam2 = Picamera2()
+            break
+        except Exception as _ce:
+            print(f'[camera] Deneme {_attempt+1}/6: {_ce}')
+            time.sleep(2)
+    if _cam2 is None:
+        print('[camera] Kamera acılamadı, vazgecildi')
+        _cam_running = False
+        return
+
     _cfg  = _cam2.create_video_configuration(
         main={'size': (640, 480), 'format': 'RGB888'},
         controls={'FrameRate': 15}

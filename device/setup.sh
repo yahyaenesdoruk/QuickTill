@@ -118,13 +118,13 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
-# --- Kiosk servisi (luma.lcd ile doğrudan SPI, display servisi yok) ---
+# --- Kiosk servisi (doğrudan SPI + dahili kamera) ---
 PI_APP_DIR="$QUICKTILL_DIR/pi-app"
 sudo tee /etc/systemd/system/quicktill-kiosk.service > /dev/null <<EOF
 [Unit]
-Description=QuickTill Kiosk (pygame + luma.lcd)
-After=quicktill-barcode.service
-Wants=quicktill-barcode.service
+Description=QuickTill Kiosk (pygame + ILI9341 + picamera2)
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 User=$CURRENT_USER
