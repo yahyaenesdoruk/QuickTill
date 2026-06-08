@@ -63,7 +63,7 @@ if not DEV:
 
         class _GpioAdapter:
             """RPi.GPIO uyumlu lgpio sarmalayıcısı (luma.core için)."""
-            BCM = 11; OUT = 0
+            BCM = 11; OUT = 0; IN = 1; HIGH = 1; LOW = 0
             def __init__(self):
                 self._h = None; self._pins = []
             def setmode(self, _m):
