@@ -298,24 +298,26 @@ def _touch_loop():
 
     touching  = False
     last_pos  = (0, 0)
+    print('[touch] thread başladı')
 
     while True:
-        z = raw(0xB0)               # Z1 basınç
-        if z > 200:
-            x_raw = raw(0xD0)       # X kanalı
-            y_raw = raw(0x90)       # Y kanalı
-            sx = to_px(x_raw, X_MIN, X_MAX, W)
-            sy = to_px(y_raw, Y_MAX, Y_MIN, H)  # Y ters çevrildi
-            last_pos = (sx, sy)
-            if not touching:
-                pygame.event.post(pygame.event.Event(
-                    pygame.MOUSEBUTTONDOWN, {'pos': last_pos, 'button': 1}))
-                touching = True
-        else:
-            if touching:
-                pygame.event.post(pygame.event.Event(
-                    pygame.MOUSEBUTTONUP, {'pos': last_pos, 'button': 1}))
-                touching = False
+        try:
+            z = raw(0xB0)               # Z1 basınç
+            if z > 200:
+                x_raw = raw(0xD0)       # X kanalı
+                y_raw = raw(0x90)       # Y kanalı
+                sx = to_px(x_raw, X_MIN, X_MAX, W)
+                sy = to_px(y_raw, Y_MAX, Y_MIN, H)  # Y ters çevrildi
+                last_pos = (sx, sy)
+                if not touching:
+                    event_queue.put({'t': 'touch_down', 'pos': last_pos})
+                    touching = True
+            else:
+                if touching:
+                    event_queue.put({'t': 'touch_up', 'pos': last_pos})
+                    touching = False
+        except Exception as _te:
+            print(f'[touch] okuma hatası: {_te}')
         time.sleep(0.02)    # 50 Hz
 
 if not DEV:
@@ -602,6 +604,40 @@ while running:
             toast('Fis kaydedildi!', SU)
         elif m['t'] == 'receipt_fail':
             toast('Fis kaydedilemedi', ER)
+        elif m['t'] == 'touch_down':
+            drag_start = m['pos']
+            drag_scroll_start = cart_scroll if screen_name == 'cart' else co_scroll
+            dragging = False
+        elif m['t'] == 'touch_up':
+            if not dragging:
+                pos = m['pos']
+                if screen_name == 'cart':
+                    if hit(CART_SCAN_BTN, pos) or hit(CART_SCAN_ACT, pos):
+                        go('scanner')
+                    elif hit(CART_PAY_ACT, pos):
+                        go('checkout')
+                    elif pi_user and hit(USER_LOGOUT_BTN, pos):
+                        pi_user  = None; pi_token = None
+                        toast('Hesaptan cikis yapildi', T2)
+                    else:
+                        for reg in _cart_items_y():
+                            if hit(reg['plus'],  pos): cart_update(reg['barcode'],  1); break
+                            if hit(reg['minus'], pos): cart_update(reg['barcode'], -1); break
+                elif screen_name == 'scanner':
+                    if hit(BACK_BTN, pos): go('cart')
+                    elif hit(MANUAL_IN, pos): kbd_active = True
+                    elif hit(MANUAL_GO, pos):
+                        if kbd_text.strip(): lookup(kbd_text.strip()); kbd_text = ''
+                elif screen_name == 'checkout':
+                    if hit(BACK_BTN, pos) or hit(BACK_CO_BTN, pos): go('cart')
+                    elif hit(CONFIRM_BTN, pos):
+                        if pi_user and pi_token:
+                            items_snap = [dict(i) for i in cart]
+                            threading.Thread(target=_save_receipt,
+                                args=(items_snap, pi_token), daemon=True).start()
+                        cart.clear(); cart_scroll = 0
+                        toast('Odeme tamamlandi!', SU); go('cart')
+            drag_start = None; dragging = False
 
     # ── Toast temizle
     if toast_data and time.time() > toast_data[2]:
