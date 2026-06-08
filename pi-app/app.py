@@ -114,6 +114,22 @@ if not DEV:
     except Exception as _e:
         print(f'[display] HATA: {_e}')
 
+# ── XPT2046 dokunmatik — ana döngüde doğrudan okuma (thread yok) ─────────────
+_tspi = None
+if not DEV:
+    try:
+        import spidev as _tspidev
+        _tspi = _tspidev.SpiDev()
+        _tspi.open(0, 1)
+        _tspi.max_speed_hz = 1_000_000
+        _tspi.mode = 0
+        print('[touch] XPT2046 hazir')
+    except Exception as _te:
+        print(f'[touch] HATA: {_te}')
+_TX_MIN, _TX_MAX = 542, 3613
+_TY_MIN, _TY_MAX = 437, 3782
+_touching = False
+
 def _font(size, bold=False):
     for name in ['DejaVuSans', 'DejaVu Sans', 'FreeSans', None]:
         try:
@@ -267,61 +283,6 @@ def _ws_loop():
 
 threading.Thread(target=_ws_loop, daemon=True).start()
 
-# ── Dokunmatik (XPT2046 — spidev CS1 ile doğrudan) ───────────────────────────
-def _touch_loop():
-    """
-    XPT2046 dokunmatik okuyucu.
-    ads7846 kernel sürücüsü yerine spidev CS1 kullanır.
-    Kalibrasyon için X_MIN/MAX, Y_MIN/MAX değerlerini ayarla.
-    """
-    import spidev as _spi_mod
-    spi = _spi_mod.SpiDev()
-    try:
-        spi.open(0, 1)              # SPI0 CS1 — XPT2046
-        spi.max_speed_hz = 1_000_000
-        spi.mode = 0
-    except Exception as e:
-        print(f'[touch] HATA: {e}')
-        return
-
-    def raw(cmd):
-        with _spi_lock:
-            r = spi.xfer2([cmd, 0x00, 0x00])
-        return ((r[1] << 8) | r[2]) >> 3   # 12-bit
-
-    # Kalibrasyon (köşe testinden ölçüldü)
-    X_MIN, X_MAX = 542, 3613    # sol → sağ
-    Y_MIN, Y_MAX = 437, 3782    # alt → üst (Y ekseni ters)
-
-    def to_px(v, lo, hi, sz):
-        return max(0, min(sz - 1, int((v - lo) / max(hi - lo, 1) * sz)))
-
-    touching  = False
-    last_pos  = (0, 0)
-    print('[touch] thread başladı')
-
-    while True:
-        try:
-            z = raw(0xB0)               # Z1 basınç
-            if z > 200:
-                x_raw = raw(0xD0)       # X kanalı
-                y_raw = raw(0x90)       # Y kanalı
-                sx = to_px(x_raw, X_MIN, X_MAX, W)
-                sy = to_px(y_raw, Y_MAX, Y_MIN, H)  # Y ters çevrildi
-                last_pos = (sx, sy)
-                if not touching:
-                    event_queue.put({'t': 'touch_down', 'pos': last_pos})
-                    touching = True
-            else:
-                if touching:
-                    event_queue.put({'t': 'touch_up', 'pos': last_pos})
-                    touching = False
-        except Exception as _te:
-            print(f'[touch] okuma hatası: {_te}')
-        time.sleep(0.02)    # 50 Hz
-
-if not DEV:
-    threading.Thread(target=_touch_loop, daemon=True).start()
 
 # ── Çizim yardımcıları ────────────────────────────────────────────────────────
 def fill_rect(color, rect, r=0):
@@ -604,40 +565,6 @@ while running:
             toast('Fis kaydedildi!', SU)
         elif m['t'] == 'receipt_fail':
             toast('Fis kaydedilemedi', ER)
-        elif m['t'] == 'touch_down':
-            drag_start = m['pos']
-            drag_scroll_start = cart_scroll if screen_name == 'cart' else co_scroll
-            dragging = False
-        elif m['t'] == 'touch_up':
-            if not dragging:
-                pos = m['pos']
-                if screen_name == 'cart':
-                    if hit(CART_SCAN_BTN, pos) or hit(CART_SCAN_ACT, pos):
-                        go('scanner')
-                    elif hit(CART_PAY_ACT, pos):
-                        go('checkout')
-                    elif pi_user and hit(USER_LOGOUT_BTN, pos):
-                        pi_user  = None; pi_token = None
-                        toast('Hesaptan cikis yapildi', T2)
-                    else:
-                        for reg in _cart_items_y():
-                            if hit(reg['plus'],  pos): cart_update(reg['barcode'],  1); break
-                            if hit(reg['minus'], pos): cart_update(reg['barcode'], -1); break
-                elif screen_name == 'scanner':
-                    if hit(BACK_BTN, pos): go('cart')
-                    elif hit(MANUAL_IN, pos): kbd_active = True
-                    elif hit(MANUAL_GO, pos):
-                        if kbd_text.strip(): lookup(kbd_text.strip()); kbd_text = ''
-                elif screen_name == 'checkout':
-                    if hit(BACK_BTN, pos) or hit(BACK_CO_BTN, pos): go('cart')
-                    elif hit(CONFIRM_BTN, pos):
-                        if pi_user and pi_token:
-                            items_snap = [dict(i) for i in cart]
-                            threading.Thread(target=_save_receipt,
-                                args=(items_snap, pi_token), daemon=True).start()
-                        cart.clear(); cart_scroll = 0
-                        toast('Odeme tamamlandi!', SU); go('cart')
-            drag_start = None; dragging = False
 
     # ── Toast temizle
     if toast_data and time.time() > toast_data[2]:
@@ -734,12 +661,54 @@ while running:
     draw_toast()
     pygame.display.flip()
 
-    # Pi'de luma.lcd üzerinden ILI9341'e gönder
+    # Pi'de ILI9341'e gönder
     if _disp is not None and _Image is not None:
         try:
-            raw = pygame.surfarray.array3d(screen)   # (240, 320, 3)
-            img = _Image.fromarray(raw.transpose(1, 0, 2), 'RGB')
-            _disp.display(img)
+            _raw = pygame.surfarray.array3d(screen)
+            _img = _Image.fromarray(_raw.transpose(1, 0, 2), 'RGB')
+            _disp.display(_img)
+        except Exception:
+            pass
+
+    # ── XPT2046 dokunmatik — display yazımı bitti, SPI CS ayrı, çakışma yok ──
+    if _tspi is not None:
+        try:
+            def _tr(c):
+                r = _tspi.xfer2([c, 0, 0])
+                return ((r[1] << 8) | r[2]) >> 3
+            _z = _tr(0xB0)
+            if _z > 200:
+                _sx = max(0, min(W-1, int((_tr(0xD0) - _TX_MIN) / (_TX_MAX - _TX_MIN) * W)))
+                _sy = max(0, min(H-1, int((_TY_MAX - _tr(0x90)) / (_TY_MAX - _TY_MIN) * H)))
+                if not _touching:
+                    _touching = True
+                    _tp = (_sx, _sy)
+                    if screen_name == 'cart':
+                        if hit(CART_SCAN_BTN, _tp) or hit(CART_SCAN_ACT, _tp): go('scanner')
+                        elif hit(CART_PAY_ACT, _tp): go('checkout')
+                        elif pi_user and hit(USER_LOGOUT_BTN, _tp):
+                            pi_user = None; pi_token = None
+                            toast('Hesaptan cikis yapildi', T2)
+                        else:
+                            for _rg in _cart_items_y():
+                                if hit(_rg['plus'],  _tp): cart_update(_rg['barcode'],  1); break
+                                if hit(_rg['minus'], _tp): cart_update(_rg['barcode'], -1); break
+                    elif screen_name == 'scanner':
+                        if hit(BACK_BTN, _tp): go('cart')
+                        elif hit(MANUAL_IN, _tp): kbd_active = True
+                        elif hit(MANUAL_GO, _tp):
+                            if kbd_text.strip(): lookup(kbd_text.strip()); kbd_text = ''
+                    elif screen_name == 'checkout':
+                        if hit(BACK_BTN, _tp) or hit(BACK_CO_BTN, _tp): go('cart')
+                        elif hit(CONFIRM_BTN, _tp):
+                            if pi_user and pi_token:
+                                _snap = [dict(i) for i in cart]
+                                threading.Thread(target=_save_receipt,
+                                    args=(_snap, pi_token), daemon=True).start()
+                            cart.clear(); cart_scroll = 0
+                            toast('Odeme tamamlandi!', SU); go('cart')
+            else:
+                _touching = False
         except Exception:
             pass
 
