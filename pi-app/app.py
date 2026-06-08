@@ -1,48 +1,41 @@
 #!/usr/bin/env python3
 """
-QuickTill Pi Kiosk — Native pygame uygulaması
-==============================================
-Chrome veya X11 gerekmez. luma.lcd ile ILI9341 SPI ekrana doğrudan çizer.
-240×320 ILI9341 SPI ekran + XPT2046 dokunmatik için.
-
+QuickTill Pi Kiosk — Yeni tasarım
+240×320 ILI9341 SPI ekran + XPT2046 dokunmatik
 Kullanım:
-  python3 app.py            → Pi'de (luma.lcd + ILI9341)
-  python3 app.py --dev      → Masaüstünde test (normal pencere)
-
-Bağımlılıklar:
-  pip3 install pygame requests websockets evdev luma.lcd luma.core --break-system-packages
+  python3 app.py          → Pi'de
+  python3 app.py --dev    → Masaüstü test
 """
 
 import os, sys, threading, time, json, queue
-_spi_lock = threading.Lock()   # ILI9341 + XPT2046 aynı SPI0 bus'ını paylaşır
+_spi_lock = threading.Lock()
 import pygame
 import requests
 
-# ── Ortam — offscreen modu (luma.lcd doğrudan SPI'a yazar) ───────────────────
 DEV = '--dev' in sys.argv
 if not DEV:
     os.environ['SDL_VIDEODRIVER'] = 'offscreen'
     os.environ['SDL_NOMOUSE']     = '1'
 
-# ── Sabitler ──────────────────────────────────────────────────────────────────
 W, H   = 240, 320
-FPS    = 30 if DEV else 8    # Pi'de SPI busy → touch için bus boşaltılması lazım
+FPS    = 30 if DEV else 10
 API    = 'https://quicktill-backend.onrender.com/api'
 WS_URL = 'ws://localhost:8765'
 
-# Renkler (web uygulamasıyla aynı palet)
-P      = ( 37,  99, 235)   # primary blue
-SU     = ( 22, 163,  74)   # success green
-ER     = (220,  38,  38)   # error red
-BG     = (241, 245, 249)   # surface
-WH     = (255, 255, 255)   # white
-TX     = ( 15,  23,  42)   # text dark
-T2     = (100, 116, 139)   # text secondary
-BD     = (226, 232, 240)   # border
-OK_BG  = (240, 253, 244)
-OK_BD  = (134, 239, 172)
-NO_BG  = (255, 245, 245)
-NO_BD  = (252, 165, 165)
+# ── Renkler (web uygulamasıyla aynı palet) ────────────────────────────────────
+P      = ( 46, 125,  50)   # #2E7D32 koyu yeşil
+PL     = ( 76, 175,  80)   # #4CAF50 açık yeşil
+BG     = (245, 245, 245)   # #F5F5F5 arka plan
+WH     = (255, 255, 255)   # beyaz
+TX     = ( 33,  33,  33)   # #212121 ana metin
+T2     = (117, 117, 117)   # #757575 ikincil metin
+BD     = (224, 224, 224)   # #E0E0E0 kenar
+SU     = ( 56, 142,  60)   # #388E3C başarı
+ER     = (211,  47,  47)   # #D32F2F hata
+OK_BG  = (232, 245, 233)
+OK_BD  = (129, 199, 132)
+NO_BG  = (255, 235, 238)
+NO_BD  = (239, 154, 154)
 
 # ── pygame Init ───────────────────────────────────────────────────────────────
 pygame.init()
@@ -52,14 +45,14 @@ clock  = pygame.time.Clock()
 if not DEV:
     pygame.mouse.set_visible(False)
 
-# ── Doğrudan SPI — ILI9341 240×320 portrait sürücüsü ─────────────────────────
+# ── ILI9341 doğrudan SPI sürücüsü ────────────────────────────────────────────
 _disp  = None
 _Image = None
 if not DEV:
     try:
-        import spidev  as _spidev
-        import lgpio   as _lgpio
-        import numpy   as _np
+        import spidev as _spidev
+        import lgpio  as _lgpio
+        import numpy  as _np
         from PIL import Image as _Image
 
         class _ILI9341:
@@ -91,30 +84,29 @@ if not DEV:
                 c(0xED,0x64,0x03,0x12,0x81); c(0xE8,0x85,0x00,0x78)
                 c(0xCB,0x39,0x2C,0x00,0x34,0x02); c(0xF7,0x20); c(0xEA,0x00,0x00)
                 c(0xC0,0x23); c(0xC1,0x10); c(0xC5,0x3E,0x28); c(0xC7,0x86)
-                c(0x36,0x48)   # MADCTL: portrait MX=1, BGR
-                c(0x3A,0x55)   # 16-bit RGB565
+                c(0x36,0x48)
+                c(0x3A,0x55)
                 c(0xB1,0x00,0x18); c(0xB6,0x08,0x82,0x27); c(0xF2,0x00); c(0x26,0x01)
                 c(0xE0,0x0F,0x31,0x2B,0x0C,0x0E,0x08,0x4E,0xF1,0x37,0x07,0x10,0x03,0x0E,0x09,0x00)
                 c(0xE1,0x00,0x0E,0x14,0x03,0x11,0x07,0x31,0xC1,0x48,0x08,0x0F,0x0C,0x31,0x36,0x0F)
                 c(0x11); time.sleep(0.12); c(0x29)
 
             def display(self, img):
-                """PIL RGB 240×320 görüntüyü RGB565 olarak ekrana yaz."""
-                a  = _np.array(img, dtype=_np.uint16)   # (320, 240, 3)
+                a  = _np.array(img, dtype=_np.uint16)
                 px = ((a[:,:,0]>>3)<<11)|((a[:,:,1]>>2)<<5)|(a[:,:,2]>>3)
                 px = px.byteswap().astype(_np.uint16)
                 with _spi_lock:
-                    self._cmd(0x2A,0x00,0x00,0x00,0xEF)    # cols 0–239
-                    self._cmd(0x2B,0x00,0x00,0x01,0x3F)    # rows 0–319
+                    self._cmd(0x2A,0x00,0x00,0x00,0xEF)
+                    self._cmd(0x2B,0x00,0x00,0x01,0x3F)
                     self._dc(0); self._spi.writebytes([0x2C])
                     self._dc(1); self._spi.writebytes2(px.tobytes())
 
         _disp = _ILI9341()
-        print('[display] ILI9341 hazir (direct SPI)')
+        print('[display] ILI9341 hazir')
     except Exception as _e:
         print(f'[display] HATA: {_e}')
 
-# ── XPT2046 dokunmatik — ana döngüde doğrudan okuma (thread yok) ─────────────
+# ── XPT2046 dokunmatik ────────────────────────────────────────────────────────
 _tspi = None
 if not DEV:
     try:
@@ -130,142 +122,147 @@ _TX_MIN, _TX_MAX = 542, 3613
 _TY_MIN, _TY_MAX = 437, 3782
 _touching = False
 
-# ── Kamera (scanner ekranı canlı önizleme + barkod) ──────────────────────────
-_cam_frame   = None          # son kamera karesi (numpy RGB888)
-_cam_lock    = threading.Lock()
-_cam_running = False         # kamera thread aktif mi?
-
+# ── Fontlar ───────────────────────────────────────────────────────────────────
 def _font(size, bold=False):
     for name in ['DejaVuSans', 'DejaVu Sans', 'FreeSans', None]:
         try:
-            f = pygame.font.SysFont(name, size, bold=bold) if name else pygame.font.Font(None, size + 4)
-            return f
+            return (pygame.font.SysFont(name, size, bold=bold) if name
+                    else pygame.font.Font(None, size+4))
         except Exception:
             continue
-    return pygame.font.Font(None, size + 4)
+    return pygame.font.Font(None, size+4)
 
 F11  = _font(11);  F12  = _font(12);  F13  = _font(13)
 F16  = _font(16);  F20  = _font(20)
 F12B = _font(12, True);  F13B = _font(13, True)
 F14B = _font(14, True);  F15B = _font(15, True)
 
-# ── State ─────────────────────────────────────────────────────────────────────
-cart           = []               # [{barcode, name, price, qty}]
-screen_name    = 'cart'           # 'cart' | 'scanner' | 'checkout'
-ws_status      = 'connecting'     # 'connecting' | 'ready' | 'error'
-scan_result    = None             # None | {'ok', 'product'/'code'}
-toast_data     = None             # (text, color, expire_time)
-api_busy       = False
-kbd_text       = ''               # manual barcode input
-kbd_active     = False
-cart_scroll    = 0
-co_scroll      = 0
-event_queue    = queue.Queue()    # thread → main thread
-pi_user        = None             # None | {'id', 'name', 'email', 'username'}
-pi_token       = None             # Giriş yapılmış kullanıcının JWT'si
+# ── Ürün listesi (web uygulamasıyla aynı) ────────────────────────────────────
+PRODUCTS = [
+    {'barcode':'8690504001011','name':'Sut 1L',             'price':28.50},
+    {'barcode':'8690504002012','name':'Beyaz Peynir 500g',  'price':89.90},
+    {'barcode':'8690504003013','name':'Kasar Peynir 350g',  'price':125.00},
+    {'barcode':'8690504004014','name':'Yogurt 500g',        'price':19.90},
+    {'barcode':'8690504005015','name':'Su 1.5L',            'price':6.50},
+    {'barcode':'8690504006016','name':'Kola 2.5L',          'price':42.90},
+    {'barcode':'8690504007017','name':'Ayran 1L',           'price':22.50},
+    {'barcode':'8690504008018','name':'Meyve Suyu 1L',      'price':28.90},
+    {'barcode':'8690504009019','name':'Ekmek',              'price':8.00},
+    {'barcode':'8690504010020','name':'Makarna 500g',       'price':18.50},
+    {'barcode':'8690504011021','name':'Pirinc 1kg',         'price':42.00},
+    {'barcode':'8690504012022','name':'Un 1kg',             'price':19.90},
+    {'barcode':'8690504013023','name':'Seker 1kg',          'price':35.00},
+    {'barcode':'8690504014024','name':'Salca 700g',         'price':32.50},
+    {'barcode':'8690504015025','name':'Ton Baligi Konserve','price':45.00},
+    {'barcode':'8690504016026','name':'Zeytin 500g',        'price':55.00},
+    {'barcode':'8690504017027','name':'Salam 150g',         'price':38.90},
+    {'barcode':'8690504018028','name':'Sosis 500g',         'price':52.00},
+    {'barcode':'8690504019029','name':'Deterjan 3kg',       'price':125.00},
+    {'barcode':'8690504020030','name':'Bulasik Deterjani',  'price':35.90},
+    {'barcode':'8690504021031','name':'Cips 150g',          'price':22.50},
+    {'barcode':'8690504022032','name':'Cikolata 80g',       'price':18.90},
+]
 
-# ── Cart helpers ──────────────────────────────────────────────────────────────
+# ── State ─────────────────────────────────────────────────────────────────────
+cart        = []
+screen_name = 'cart'      # 'cart' | 'add' | 'checkout'
+add_tab     = 'products'  # 'products' | 'code'
+ws_status   = 'connecting'
+scan_result = None
+toast_data  = None
+api_busy    = False
+kbd_text    = ''
+kbd_active  = False
+cart_scroll = 0
+prod_scroll = 0
+co_scroll   = 0
+event_queue = queue.Queue()
+pi_user     = None
+pi_token    = None
+
+# ── Sepet yardımcıları ────────────────────────────────────────────────────────
 def cart_add(product):
     for item in cart:
         if item['barcode'] == product['barcode']:
-            item['qty'] += 1
-            return
-    cart.append({'barcode': product['barcode'], 'name': product['name'],
-                 'price': float(product['price']), 'qty': 1})
+            item['qty'] += 1; return
+    cart.append({'barcode':product['barcode'], 'name':product['name'],
+                 'price':float(product['price']), 'qty':1})
 
 def cart_update(barcode, delta):
     global cart
     for item in cart:
         if item['barcode'] == barcode:
-            item['qty'] = max(0, item['qty'] + delta)
+            item['qty'] = max(0, item['qty']+delta)
     cart[:] = [i for i in cart if i['qty'] > 0]
 
-def cart_total(): return sum(i['price'] * i['qty'] for i in cart)
+def cart_total(): return sum(i['price']*i['qty'] for i in cart)
 def cart_count(): return sum(i['qty'] for i in cart)
 
-# ── API (arka plan) ───────────────────────────────────────────────────────────
+# ── API ───────────────────────────────────────────────────────────────────────
 def _lookup(code):
+    # Önce yerel listede ara
+    for p in PRODUCTS:
+        if p['barcode'] == code:
+            event_queue.put({'t':'result','ok':True,'product':p,'code':code}); return
+    # Backend'e sor
     try:
         r = requests.get(f'{API}/products/barcode/{code}', timeout=10)
         if r.status_code == 404:
-            event_queue.put({'t': 'result', 'ok': False, 'code': code})
+            event_queue.put({'t':'result','ok':False,'code':code})
         elif r.ok:
-            event_queue.put({'t': 'result', 'ok': True, 'product': r.json(), 'code': code})
+            event_queue.put({'t':'result','ok':True,'product':r.json(),'code':code})
         else:
-            event_queue.put({'t': 'result', 'ok': False, 'code': code})
+            event_queue.put({'t':'result','ok':False,'code':code})
     except Exception:
-        event_queue.put({'t': 'result', 'ok': False, 'code': code, 'net': True})
+        event_queue.put({'t':'result','ok':False,'code':code,'net':True})
 
 def lookup(code):
     global api_busy
-    if api_busy:
-        return
+    if api_busy: return
     api_busy = True
     threading.Thread(target=_lookup, args=(code,), daemon=True).start()
 
-# ── QR Link Token (arka plan) ─────────────────────────────────────────────────
 def _redeem_link_token(token):
     try:
-        r = requests.post(f'{API}/auth/redeem-link-token',
-                          json={'token': token}, timeout=10)
+        r = requests.post(f'{API}/auth/redeem-link-token', json={'token':token}, timeout=10)
         if r.ok:
             data = r.json()
-            event_queue.put({'t': 'link_ok', 'user': data['user'], 'token': data['token']})
+            event_queue.put({'t':'link_ok','user':data['user'],'token':data['token']})
         else:
-            try:
-                msg = r.json().get('detail', 'Giris hatasi')
-            except Exception:
-                msg = 'Giris hatasi'
-            event_queue.put({'t': 'link_fail', 'msg': msg})
+            try:    msg = r.json().get('detail','Giris hatasi')
+            except: msg = 'Giris hatasi'
+            event_queue.put({'t':'link_fail','msg':msg})
     except Exception:
-        event_queue.put({'t': 'link_fail', 'msg': 'Baglanti hatasi'})
+        event_queue.put({'t':'link_fail','msg':'Baglanti hatasi'})
 
 def redeem_link_token(token):
     threading.Thread(target=_redeem_link_token, args=(token,), daemon=True).start()
 
-# ── Fiş kaydetme (arka plan) ──────────────────────────────────────────────────
 def _save_receipt(items_snapshot, token):
-    """Ödeme sonrası fişi backend'e kaydeder."""
     from datetime import datetime as _dt
     now = _dt.now()
-    ts  = str(int(now.timestamp() * 1000))
-    receipt_id = f"#RCP-{now.strftime('%Y%m%d')}-{ts[-4:]}"
+    ts  = str(int(now.timestamp()*1000))
     payload = {
-        'receiptId':     receipt_id,
-        'date':          now.strftime('%d.%m.%Y'),
-        'time':          now.strftime('%H:%M'),
-        'items':         [
-            {
-                'name':      i['name'],
-                'quantity':  i['qty'],
-                'unitPrice': i['price'],
-                'subtotal':  round(i['price'] * i['qty'], 2),
-            }
-            for i in items_snapshot
-        ],
-        'total':         round(sum(i['price'] * i['qty'] for i in items_snapshot), 2),
-        'itemCount':     sum(i['qty'] for i in items_snapshot),
-        'paymentMethod': 'Pi',
+        'receiptId':    f"#RCP-{now.strftime('%Y%m%d')}-{ts[-4:]}",
+        'date':         now.strftime('%d.%m.%Y'),
+        'time':         now.strftime('%H:%M'),
+        'items':        [{'name':i['name'],'quantity':i['qty'],'unitPrice':i['price'],
+                          'subtotal':round(i['price']*i['qty'],2)} for i in items_snapshot],
+        'total':        round(sum(i['price']*i['qty'] for i in items_snapshot),2),
+        'itemCount':    sum(i['qty'] for i in items_snapshot),
+        'paymentMethod':'Pi',
     }
     try:
-        r = requests.post(
-            f'{API}/receipts',
-            json=payload,
-            headers={'Authorization': f'Bearer {token}'},
-            timeout=15,
-        )
-        if r.ok:
-            event_queue.put({'t': 'receipt_ok'})
-        else:
-            event_queue.put({'t': 'receipt_fail'})
+        r = requests.post(f'{API}/receipts', json=payload,
+                          headers={'Authorization':f'Bearer {token}'}, timeout=15)
+        event_queue.put({'t':'receipt_ok' if r.ok else 'receipt_fail'})
     except Exception:
-        event_queue.put({'t': 'receipt_fail'})
+        event_queue.put({'t':'receipt_fail'})
 
-# ── WebSocket barkod servisi (arka plan) ──────────────────────────────────────
+# ── WebSocket (USB barkod okuyucu) ────────────────────────────────────────────
 def _ws_loop():
     global ws_status
     import asyncio, websockets as _ws
-
     async def _run():
         global ws_status
         while True:
@@ -277,72 +274,14 @@ def _ws_loop():
                         try:
                             d = json.loads(raw)
                             if d.get('barcode'):
-                                event_queue.put({'t': 'barcode', 'code': d['barcode']})
-                        except Exception:
-                            pass
+                                event_queue.put({'t':'barcode','code':d['barcode']})
+                        except Exception: pass
             except Exception:
                 ws_status = 'error'
                 await asyncio.sleep(5)
-
     asyncio.run(_run())
 
 threading.Thread(target=_ws_loop, daemon=True).start()
-
-
-# ── Kamera thread (scanner ekranına canlı görüntü + barkod okuma) ─────────────
-def _camera_thread():
-    global _cam_frame, _cam_running
-    try:
-        from picamera2 import Picamera2
-        from pyzbar import pyzbar as _pyzbar
-        import numpy as _cnp
-    except ImportError as _ie:
-        print(f'[camera] Import hatasi: {_ie}')
-        _cam_running = False
-        return
-
-    # Kamera meşgulse (barcode servisi yeni kapandıysa) birkaç kez dene
-    _cam2 = None
-    for _attempt in range(6):
-        try:
-            _cam2 = Picamera2()
-            break
-        except Exception as _ce:
-            print(f'[camera] Deneme {_attempt+1}/6: {_ce}')
-            time.sleep(2)
-    if _cam2 is None:
-        print('[camera] Kamera acılamadı, vazgecildi')
-        _cam_running = False
-        return
-
-    _cfg  = _cam2.create_video_configuration(
-        main={'size': (640, 480), 'format': 'RGB888'},
-        controls={'FrameRate': 15}
-    )
-    _cam2.configure(_cfg)
-    _cam2.start()
-    print('[camera] Baslatildi')
-    _last_barcode_time = {}
-    try:
-        while _cam_running:
-            _fr = _cam2.capture_array()
-            with _cam_lock:
-                _cam_frame = _fr
-            # barkod çöz
-            _gray = (_fr[...,0]*0.299 + _fr[...,1]*0.587 + _fr[...,2]*0.114).astype('uint8')
-            for _r in _pyzbar.decode(_gray):
-                _code = _r.data.decode('utf-8').strip()
-                _now  = time.monotonic()
-                if _now - _last_barcode_time.get(_code, 0) > 1.5:
-                    _last_barcode_time[_code] = _now
-                    event_queue.put({'t': 'barcode', 'code': _code})
-            time.sleep(0.067)   # ~15 fps
-    finally:
-        _cam2.stop()
-        with _cam_lock:
-            _cam_frame = None
-        print('[camera] Durduruldu')
-
 
 # ── Çizim yardımcıları ────────────────────────────────────────────────────────
 def fill_rect(color, rect, r=0):
@@ -352,239 +291,288 @@ def stroke_rect(color, rect, w=1, r=0):
     pygame.draw.rect(screen, color, rect, w, border_radius=r)
 
 def text(txt, font, color, x, y, anchor='left', max_w=0):
-    s = txt
+    s = str(txt)
     if max_w:
         while font.size(s)[0] > max_w and len(s) > 1:
-            s = s[:-2] + '…'
-    surf = font.render(str(s), True, color)
-    if   anchor == 'center': x -= surf.get_width() // 2
+            s = s[:-2]+'…'
+    surf = font.render(s, True, color)
+    if   anchor == 'center': x -= surf.get_width()//2
     elif anchor == 'right':  x -= surf.get_width()
     screen.blit(surf, (x, y))
 
-def button(label, rect, bg, fg=WH, r=9):
+def button(label, rect, bg, fg=WH, r=8):
     fill_rect(bg, rect, r)
     surf = F13B.render(label, True, fg)
-    screen.blit(surf, (rect[0] + rect[2]//2 - surf.get_width()//2,
-                       rect[1] + rect[3]//2 - surf.get_height()//2))
+    screen.blit(surf, (rect[0]+rect[2]//2-surf.get_width()//2,
+                       rect[1]+rect[3]//2-surf.get_height()//2))
 
 def hit(rect, pos):
     return pygame.Rect(rect).collidepoint(pos)
 
 def toast(msg, color=SU, sec=2.3):
     global toast_data
-    toast_data = (msg, color, time.time() + sec)
+    toast_data = (msg, color, time.time()+sec)
 
-# ── Ekran: SEPET ──────────────────────────────────────────────────────────────
-HDR = 44          # header yüksekliği
-FTR = 100         # footer yüksekliği
+# ─────────────────────────────────────────────────────────────────────────────
+# LAYOUT SABİTLERİ
+# ─────────────────────────────────────────────────────────────────────────────
+HDR = 44    # header yüksekliği
+TAB_H = 34  # sekme çubuğu yüksekliği
+FTR = 104   # sepet footer yüksekliği
+
+# Sepet
+CART_ADD_BTN    = (W-44, 6, 36, 32)        # sağ üst + dairesi
+CART_SCAN_BTN   = (8, H-FTR+36, W-16, 30) # "Ürün Ekle" butonu
+CART_PAY_BTN    = (8, H-FTR+70, W-16, 30) # "Ödeme Yap" butonu
+USER_LOGOUT_BTN = (W-68, 10, 60, 24)
+
 LST_Y = HDR
-LST_H = H - HDR - FTR   # 176px — liste alanı
-ITM_H = 46        # her sepet kalemi yüksekliği
+LST_H = H - HDR - FTR
+ITM_H = 48
 
+# Ürün ekleme
+CONT_Y    = HDR + TAB_H          # 78 — içerik başlangıcı
+PROD_H    = H - CONT_Y           # 242
+PROD_IH   = 52                   # ürün kartı yüksekliği
+
+ADD_BACK  = (0, 0, 44, HDR)
+TAB_PROD  = (0,   HDR, W//2, TAB_H)
+TAB_CODE  = (W//2, HDR, W//2, TAB_H)
+
+# Manuel giriş (Kod Gir sekmesi — ekranın en altında sabit)
+_MNL_BASE = H - 78               # 242
+MANUAL_IN = (8,   _MNL_BASE+20, W-50, 32)
+MANUAL_GO = (W-40, _MNL_BASE+20, 34, 32)
+
+# Ödeme
+CONFIRM_BTN = (8, H-68, W-16, 32)
+BACK_CO_BTN = (8, H-32, W-16, 24)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# EKRAN: SEPET
+# ─────────────────────────────────────────────────────────────────────────────
 def _cart_items_y():
-    """Kaydırılmış liste Y konumları + buton rect'leri listesi döner."""
-    regions = []
-    y = LST_Y + 6 - cart_scroll
+    regions = []; y = LST_Y + 6 - cart_scroll
     for item in cart:
-        bx = W - 12        # sağ kenar
-        bx -= 36           # toplam metin genişliği
-        plus_x  = bx - 4 - 24
-        num_x   = plus_x - 18
-        minus_x = num_x  - 24 - 2
-        regions.append({
-            'barcode': item['barcode'],
-            'y':       y,
-            'plus':    (plus_x, y + 11, 24, 24),
-            'minus':   (minus_x, y + 11, 24, 24),
-        })
+        plus_x  = W - 14
+        num_x   = plus_x - 26
+        minus_x = num_x  - 28
+        regions.append({'barcode':item['barcode'],'y':y,
+                        'plus':(plus_x-24, y+12, 24, 24),
+                        'minus':(minus_x,  y+12, 24, 24)})
         y += ITM_H
     return regions
 
 def draw_cart():
     screen.fill(BG)
 
-    # ── Header
-    fill_rect(WH, (0, 0, W, HDR))
-    pygame.draw.line(screen, BD, (0, HDR), (W, HDR), 1)
+    # Header
+    fill_rect(WH, (0,0,W,HDR))
+    pygame.draw.line(screen, BD, (0,HDR), (W,HDR), 1)
     if pi_user:
-        # Kullanıcı avatarı (renkli daire + baş harf)
-        pygame.draw.circle(screen, P, (18, HDR // 2), 12)
-        ini = (pi_user['name'][0].upper() if pi_user.get('name') else '?')
-        text(ini, F12B, WH, 18, HDR // 2 - 6, 'center')
-        # İsim
+        pygame.draw.circle(screen, P, (18, HDR//2), 12)
+        ini = pi_user['name'][0].upper() if pi_user.get('name') else '?'
+        text(ini, F12B, WH, 18, HDR//2-6, 'center')
         first = pi_user['name'].split()[0] if pi_user.get('name') else ''
-        text(first, F13B, TX, 34, 14, max_w=78)
-        # Çıkış butonu
+        text(first, F13B, TX, 34, 14, max_w=70)
         fill_rect(NO_BG, USER_LOGOUT_BTN, 8)
         stroke_rect(ER, USER_LOGOUT_BTN, 1, 8)
-        text('x Cikis', F11, ER,
-             USER_LOGOUT_BTN[0] + USER_LOGOUT_BTN[2] // 2,
-             USER_LOGOUT_BTN[1] + 5, 'center')
+        text('Cikis', F11, ER,
+             USER_LOGOUT_BTN[0]+USER_LOGOUT_BTN[2]//2,
+             USER_LOGOUT_BTN[1]+6, 'center')
     else:
         text('QuickTill', F15B, TX, 12, 13)
-    fill_rect(P, (W-42, 5, 34, 34), 17)
-    text('+', F14B, WH, W-25, 13, 'center')
 
-    # ── Liste (kırpmalı)
+    # Sağ üst + dairesi
+    pygame.draw.circle(screen, P, (W-26, HDR//2), 15)
+    text('+', F14B, WH, W-26, HDR//2-7, 'center')
+
+    # Liste
     screen.set_clip(pygame.Rect(0, LST_Y, W, LST_H))
     if not cart:
-        text('Sepet bos', F13B, T2, W//2, LST_Y + 68, 'center')
-        text('Barkod tarayarak urun ekleyin', F11, T2, W//2, LST_Y + 88, 'center')
+        text('Sepet bos', F13B, T2, W//2, LST_Y+58, 'center')
+        text('+ ile urun ekleyin', F11, T2, W//2, LST_Y+78, 'center')
     else:
-        max_s = max(0, len(cart) * ITM_H - LST_H)
         global cart_scroll
+        max_s = max(0, len(cart)*ITM_H - LST_H)
         cart_scroll = max(0, min(cart_scroll, max_s))
         for item, reg in zip(cart, _cart_items_y()):
             y = reg['y']
-            if y + ITM_H < LST_Y - 2 or y > LST_Y + LST_H + 2:
-                continue
-            fill_rect(WH, (6, y, W-12, ITM_H-4), 8)
-            text(item['name'], F13B, TX, 12, y + 6, max_w=108)
-            text(f"{item['price']:.2f} TL/ad", F11, T2, 12, y + 23)
+            if y+ITM_H < LST_Y-2 or y > LST_Y+LST_H+2: continue
+            fill_rect(WH, (6,y,W-12,ITM_H-4), 10)
+            text(item['name'], F12B, TX, 12, y+5, max_w=118)
+            text(f"{item['price']:.2f} TL/ad", F11, T2, 12, y+22)
             # Toplam
-            tot_x = W - 12
-            text(f"{item['price']*item['qty']:.2f}TL", F12B, P, tot_x, y + 15, 'right')
-            # + butonu
-            fill_rect(WH, reg['plus'],  6); stroke_rect(P, reg['plus'],  1, 6)
-            text('+', F14B, P,  reg['plus'][0]  + 12, reg['plus'][1]  + 4, 'center')
-            # adet
-            text(str(item['qty']), F13B, TX, reg['minus'][0] - 4 + 14, y + 15, 'center')
+            text(f"{item['price']*item['qty']:.2f} TL", F12B, P,
+                 reg['minus'][0]-8, y+14, 'right')
             # - butonu
-            fill_rect(WH, reg['minus'], 6); stroke_rect(ER, reg['minus'], 1, 6)
-            text('-', F14B, ER, reg['minus'][0] + 12, reg['minus'][1] + 4, 'center')
+            fill_rect(BG, reg['minus'], 6); stroke_rect(BD, reg['minus'], 1, 6)
+            text('-', F14B, T2, reg['minus'][0]+12, reg['minus'][1]+4, 'center')
+            # Adet
+            nx = reg['minus'][0]+reg['minus'][2]+12
+            text(str(item['qty']), F13B, TX, nx, y+14, 'center')
+            # + butonu (yeşil daire)
+            cx = reg['plus'][0]+12; cy = reg['plus'][1]+12
+            pygame.draw.circle(screen, P, (cx, cy), 12)
+            text('+', F13B, WH, cx, cy-6, 'center')
     screen.set_clip(None)
 
-    # ── Footer
+    # Footer
     fy = H - FTR
-    pygame.draw.line(screen, BD, (0, fy), (W, fy), 1)
-    fill_rect(WH, (0, fy, W, FTR))
-    text(f'{cart_count()} urun', F12, T2, 10, fy + 8)
-    text(f'{cart_total():.2f} TL', F20, P, W-10, fy + 4, 'right')
-    button('Barkod Tara',  (8, fy + 32, W-16, 28), P)
-    button('Odeme Yap',    (8, fy + 64, W-16, 28), SU)
+    pygame.draw.line(screen, BD, (0,fy), (W,fy), 1)
+    fill_rect(WH, (0,fy,W,FTR))
+    text(f'{cart_count()} urun', F12, T2, 12, fy+8)
+    text(f'{cart_total():.2f} TL', F20, P, W-12, fy+4, 'right')
+    button('+ Urun Ekle', CART_SCAN_BTN, P)
+    button('Odeme Yap',   CART_PAY_BTN,  SU)
 
-CART_SCAN_BTN    = (W-42, 5,  34, 34)
-CART_SCAN_ACT    = (8, H-FTR+32, W-16, 28)
-CART_PAY_ACT     = (8, H-FTR+64, W-16, 28)
-USER_LOGOUT_BTN  = (116, 10, 58, 24)   # header'da "× Çıkış" butonu
+# ─────────────────────────────────────────────────────────────────────────────
+# EKRAN: ÜRÜN EKLE
+# ─────────────────────────────────────────────────────────────────────────────
+def _prod_items_y():
+    regions = []; y = CONT_Y + 4 - prod_scroll
+    for p in PRODUCTS:
+        regions.append({'barcode':p['barcode'],'y':y,
+                        'add_btn':(W-44, y+10, 34, 32)})
+        y += PROD_IH
+    return regions
 
-# ── Ekran: TARAYICI ───────────────────────────────────────────────────────────
-BACK_BTN  = (0, 0, 44, HDR)
-_CAM_H    = 186                        # kamera önizleme yüksekliği (44..230)
-_MNL_Y    = HDR + _CAM_H + 4          # 234 — manuel giriş başlangıcı
-MANUAL_IN = (6,  _MNL_Y + 20, W-38, 28)
-MANUAL_GO = (W-30, _MNL_Y + 20, 26, 28)
-
-def draw_scanner():
+def draw_add():
     screen.fill(BG)
 
-    # ── Header
-    fill_rect(WH, (0, 0, W, HDR))
-    pygame.draw.line(screen, BD, (0, HDR), (W, HDR), 1)
+    # Header
+    fill_rect(WH, (0,0,W,HDR))
+    pygame.draw.line(screen, BD, (0,HDR), (W,HDR), 1)
     text('<', F14B, P, 10, 14)
-    text('Barkod Tara', F15B, TX, W//2, 14, 'center')
+    text('Urun Ekle', F15B, TX, W//2, 14, 'center')
 
-    # ── Canlı kamera önizlemesi
-    with _cam_lock:
-        _cf = _cam_frame
-    if _cf is not None:
-        try:
-            from PIL import Image as _PI
-            _pil  = _PI.fromarray(_cf, 'RGB').resize((W, _CAM_H))
-            _surf = pygame.image.fromstring(_pil.tobytes(), (W, _CAM_H), 'RGB')
-            screen.blit(_surf, (0, HDR))
-        except Exception:
-            fill_rect((20, 20, 20), (0, HDR, W, _CAM_H))
+    # Sekme çubuğu
+    fill_rect(WH, (0,HDR,W,TAB_H))
+    pygame.draw.line(screen, BD, (0,HDR+TAB_H), (W,HDR+TAB_H), 1)
+    pygame.draw.line(screen, BD, (W//2,HDR+2), (W//2,HDR+TAB_H-2), 1)
+
+    p_active = add_tab == 'products'
+    text('Urunler', F12B if p_active else F12,
+         P if p_active else T2, W//4, HDR+9, 'center')
+    if p_active:
+        pygame.draw.line(screen, P, (6, HDR+TAB_H-2), (W//2-6, HDR+TAB_H-2), 3)
+
+    c_active = add_tab == 'code'
+    text('Kod Gir', F12B if c_active else F12,
+         P if c_active else T2, W*3//4, HDR+9, 'center')
+    if c_active:
+        pygame.draw.line(screen, P, (W//2+6, HDR+TAB_H-2), (W-6, HDR+TAB_H-2), 3)
+
+    # ── Ürünler sekmesi ──────────────────────────────────────────────────────
+    if add_tab == 'products':
+        screen.set_clip(pygame.Rect(0, CONT_Y, W, PROD_H))
+        global prod_scroll
+        max_s = max(0, len(PRODUCTS)*PROD_IH - PROD_H + 8)
+        prod_scroll = max(0, min(prod_scroll, max_s))
+        for p, reg in zip(PRODUCTS, _prod_items_y()):
+            y = reg['y']
+            if y+PROD_IH < CONT_Y-2 or y > CONT_Y+PROD_H+2: continue
+            fill_rect(WH, (6,y,W-12,PROD_IH-4), 10)
+            text(p['name'],    F12B, TX, 12, y+5,  max_w=W-68)
+            text(p['barcode'], F11,  T2, 12, y+22, max_w=W-68)
+            text(f"{p['price']:.2f} TL", F12B, P, W-48, y+14, 'right')
+            # + yeşil daire
+            cx = reg['add_btn'][0]+17; cy = reg['add_btn'][1]+16
+            pygame.draw.circle(screen, P, (cx, cy), 14)
+            text('+', F14B, WH, cx, cy-7, 'center')
+        screen.set_clip(None)
+
+    # ── Kod Gir sekmesi ──────────────────────────────────────────────────────
     else:
-        fill_rect((20, 20, 20), (0, HDR, W, _CAM_H))
-        text('Kamera baslatiliyor...', F12, T2, W//2, HDR + _CAM_H//2, 'center')
-
-    # ── Tarama sonucu overlay (kamera görüntüsü üstünde)
-    if scan_result:
-        if scan_result['ok']:
-            p = scan_result['product']
-            fill_rect(OK_BG, (4, HDR+4, W-8, 40), 8)
-            stroke_rect(OK_BD, (4, HDR+4, W-8, 40), 1, 8)
-            text(p['name'], F13B, TX, 10, HDR+8, max_w=W-20)
-            qty = next((i['qty'] for i in cart if i['barcode'] == p['barcode']), 0)
-            txt = f"{p['price']:.2f} TL" + (f"  (Sepette: {qty})" if qty else '')
-            text(txt, F12, SU, 10, HDR+24, max_w=W-20)
+        # Durum / tarama sonucu kartı
+        cy = CONT_Y + 8
+        if scan_result:
+            if scan_result['ok']:
+                p = scan_result['product']
+                fill_rect(OK_BG, (8,cy,W-16,58), 10)
+                stroke_rect(OK_BD, (8,cy,W-16,58), 1, 10)
+                text(p['name'], F13B, TX, 14, cy+8, max_w=W-28)
+                text(f"{p['price']:.2f} TL", F16, SU, 14, cy+28)
+                qty = next((i['qty'] for i in cart if i['barcode']==p['barcode']),0)
+                if qty: text(f'Sepette: {qty}', F11, T2, W-14, cy+30, 'right')
+            else:
+                fill_rect(NO_BG, (8,cy,W-16,44), 10)
+                stroke_rect(NO_BD, (8,cy,W-16,44), 1, 10)
+                text('Urun bulunamadi', F13B, ER, W//2, cy+8, 'center')
+                text(str(scan_result.get('code','')), F11, T2, W//2, cy+26, 'center')
         else:
-            fill_rect(NO_BG, (4, HDR+4, W-8, 32), 8)
-            stroke_rect(NO_BD, (4, HDR+4, W-8, 32), 1, 8)
-            text('Urun bulunamadi', F13B, ER, W//2, HDR+8, 'center')
-            text(str(scan_result.get('code', '')), F11, T2, W//2, HDR+22, 'center')
+            fill_rect(WH, (8,cy,W-16,56), 10)
+            if ws_status == 'ready':
+                pygame.draw.circle(screen, SU, (22, cy+22), 6)
+                text('USB Tarayici Hazir', F12B, TX, 34, cy+12)
+                text('Barkodu okutun', F12, T2, 34, cy+30)
+            elif ws_status == 'connecting':
+                text('Tarayici bekleniyor...', F12, T2, W//2, cy+22, 'center')
+            else:
+                text('Tarayici bagli degil', F12, T2, W//2, cy+22, 'center')
+                text('Manuel giris kullanin', F11, T2, W//2, cy+38, 'center')
 
-    # ── Manuel giriş (alt şerit)
-    fill_rect(WH, (0, _MNL_Y, W, H - _MNL_Y))
-    pygame.draw.line(screen, BD, (0, _MNL_Y), (W, _MNL_Y), 1)
-    text('Manuel:', F12, T2, 8, _MNL_Y + 6)
-    box_c = P if kbd_active else BD
-    fill_rect(WH, MANUAL_IN, 6); stroke_rect(box_c, MANUAL_IN, 2, 6)
-    disp = kbd_text if kbd_text else '8691234567890'
-    col  = TX if kbd_text else T2
-    text(disp, F12, col, MANUAL_IN[0]+5, MANUAL_IN[1]+6, max_w=MANUAL_IN[2]-8)
-    fill_rect(P, MANUAL_GO, 6)
-    text('>', F14B, WH, MANUAL_GO[0] + MANUAL_GO[2]//2, MANUAL_GO[1]+6, 'center')
+        # Manuel giriş (alt şerit — sabit)
+        fill_rect(WH, (0,_MNL_BASE,W,H-_MNL_BASE))
+        pygame.draw.line(screen, BD, (0,_MNL_BASE), (W,_MNL_BASE), 1)
+        text('Manuel Barkod:', F12, T2, 10, _MNL_BASE+6)
+        box_c = P if kbd_active else BD
+        fill_rect(WH, MANUAL_IN, 6); stroke_rect(box_c, MANUAL_IN, 2, 6)
+        disp = kbd_text if kbd_text else '8691234567890'
+        col  = TX if kbd_text else T2
+        text(disp, F12, col, MANUAL_IN[0]+6, MANUAL_IN[1]+8, max_w=MANUAL_IN[2]-10)
+        fill_rect(P, MANUAL_GO, 6)
+        text('>', F14B, WH, MANUAL_GO[0]+MANUAL_GO[2]//2, MANUAL_GO[1]+8, 'center')
 
-# ── Ekran: ÖDEME ──────────────────────────────────────────────────────────────
-CONFIRM_BTN = (8, H-70, W-16, 32)
-BACK_CO_BTN = (8, H-34, W-16, 26)
-
+# ─────────────────────────────────────────────────────────────────────────────
+# EKRAN: ÖDEME
+# ─────────────────────────────────────────────────────────────────────────────
 def draw_checkout():
     screen.fill(BG)
 
-    # ── Header
-    fill_rect(WH, (0, 0, W, HDR))
-    pygame.draw.line(screen, BD, (0, HDR), (W, HDR), 1)
+    # Header
+    fill_rect(WH, (0,0,W,HDR))
+    pygame.draw.line(screen, BD, (0,HDR), (W,HDR), 1)
     text('<', F14B, P, 10, 14)
     text('Odeme', F15B, TX, W//2, 14, 'center')
 
-    # ── Kalemler
-    screen.set_clip(pygame.Rect(0, HDR, W, H - HDR - 78))
-    y = HDR + 8 - co_scroll
+    # Kalemler
+    screen.set_clip(pygame.Rect(0, HDR, W, H-HDR-74))
+    y = HDR+8 - co_scroll
     for item in cart:
-        pygame.draw.line(screen, BD, (10, y+24), (W-10, y+24), 1)
-        text(f"{item['name']} x{item['qty']}", F12, TX, 10, y+6, max_w=145)
-        text(f"{item['price']*item['qty']:.2f} TL", F12, T2, W-10, y+6, 'right')
-        y += 28
-    # Toplam
-    fill_rect(BG, (0, y, W, 32))
-    pygame.draw.line(screen, BD, (8, y+2), (W-8, y+2), 1)
-    text('Toplam', F13B, TX, 10, y+10)
+        pygame.draw.line(screen, BD, (10,y+28), (W-10,y+28), 1)
+        text(f"{item['name']} x{item['qty']}", F12, TX, 10, y+6, max_w=148)
+        text(f"{item['price']*item['qty']:.2f} TL", F12B, P, W-10, y+6, 'right')
+        y += 32
+    # Toplam satırı
+    fill_rect(WH, (0,y,W,36))
+    pygame.draw.line(screen, BD, (0,y), (W,y), 1)
+    text('TOPLAM', F13B, TX, 10, y+10)
     text(f'{cart_total():.2f} TL', F20, P, W-10, y+6, 'right')
     screen.set_clip(None)
 
-    # ── Footer
+    # Butonlar
     button('Odemeyi Onayla', CONFIRM_BTN, SU)
     fill_rect(WH, BACK_CO_BTN, 8); stroke_rect(P, BACK_CO_BTN, 1, 8)
-    button('< Geri', BACK_CO_BTN, WH, P)
+    button('< Geri Don', BACK_CO_BTN, WH, P)
 
-# ── Toast çizimi ──────────────────────────────────────────────────────────────
+# ── Toast ─────────────────────────────────────────────────────────────────────
 def draw_toast():
-    if not toast_data:
-        return
+    if not toast_data: return
     msg, color, exp = toast_data
-    if time.time() > exp:
-        return
+    if time.time() > exp: return
     surf = F12B.render(msg, True, WH)
-    tw = surf.get_width() + 18
-    tx_ = (W - tw) // 2
-    fill_rect(color, (tx_, H-28, tw, 20), 7)
-    screen.blit(surf, (tx_+9, H-24))
+    tw   = surf.get_width()+20
+    fill_rect(color, ((W-tw)//2, H-30, tw, 22), 8)
+    screen.blit(surf, ((W-tw)//2+10, H-26))
 
 # ── Ekran geçişi ──────────────────────────────────────────────────────────────
 def go(name):
-    global screen_name, scan_result, kbd_text, kbd_active, cart_scroll, co_scroll
-    global _cam_running
+    global screen_name, scan_result, kbd_text, kbd_active
+    global cart_scroll, prod_scroll, co_scroll, add_tab
     screen_name = name
-    if name == 'scanner':
+    if name == 'add':
         scan_result = None; kbd_text = ''; kbd_active = False
-        if not DEV and not _cam_running:
-            _cam_running = True
-            threading.Thread(target=_camera_thread, daemon=True).start()
-    else:
-        _cam_running = False   # thread kendisi durur
     if name == 'cart':
         cart_scroll = 0
     if name == 'checkout':
@@ -593,63 +581,56 @@ def go(name):
             toast('Sepet bos!', ER); screen_name = 'cart'
 
 # ── Ana döngü ─────────────────────────────────────────────────────────────────
-drag_start = None
+drag_start        = None
 drag_scroll_start = 0
-dragging   = False
-
+dragging          = False
 running = True
+
 while running:
 
-    # ── Arka plan mesajları
+    # Arka plan mesajları
     while not event_queue.empty():
         m = event_queue.get_nowait()
         if m['t'] == 'barcode':
             code = m['code']
             if code.startswith('QTLINK:'):
-                # QR hesap bağlama token'ı
-                redeem_link_token(code[len('QTLINK:'):])
-                go('cart')
+                redeem_link_token(code[len('QTLINK:'):]); go('cart')
             else:
-                lookup(code)
+                go('add'); add_tab = 'code'; lookup(code)
         elif m['t'] == 'result':
             api_busy = False
             if m['ok']:
                 cart_add(m['product'])
-                scan_result = {'ok': True, 'product': m['product'], 'code': m['code']}
+                scan_result = {'ok':True,'product':m['product'],'code':m['code']}
                 toast(f"+ {m['product']['name']}", SU)
             else:
-                scan_result = {'ok': False, 'code': m['code']}
-                err = 'Baglanti hatasi' if m.get('net') else f"Bulunamadi: {m['code']}"
-                toast(err, ER)
+                scan_result = {'ok':False,'code':m['code']}
+                toast(f"Bulunamadi: {m['code']}", ER)
         elif m['t'] == 'link_ok':
-            pi_user  = m['user']
-            pi_token = m['token']
-            first = pi_user['name'].split()[0] if pi_user.get('name') else pi_user.get('username', '')
+            pi_user = m['user']; pi_token = m['token']
+            first = pi_user['name'].split()[0] if pi_user.get('name') else pi_user.get('username','')
             toast(f"Hosgeldin, {first}!", SU, 3)
         elif m['t'] == 'link_fail':
-            toast(m.get('msg', 'Giris hatasi'), ER)
+            toast(m.get('msg','Giris hatasi'), ER)
         elif m['t'] == 'receipt_ok':
             toast('Fis kaydedildi!', SU)
         elif m['t'] == 'receipt_fail':
             toast('Fis kaydedilemedi', ER)
 
-    # ── Toast temizle
     if toast_data and time.time() > toast_data[2]:
         toast_data = None
 
-    # ── Olaylar
+    # Pygame olayları (masaüstü / klavye)
     for ev in pygame.event.get():
         if ev.type == pygame.QUIT:
             running = False
 
-        # Klavye (masaüstü geliştirme veya USB barkod okuyucu)
-        elif ev.type == pygame.KEYDOWN and screen_name == 'scanner':
+        elif ev.type == pygame.KEYDOWN and screen_name == 'add' and add_tab == 'code':
             if ev.key == pygame.K_RETURN:
                 code = kbd_text.strip()
                 if code:
                     if code.startswith('QTLINK:'):
-                        redeem_link_token(code[len('QTLINK:'):])
-                        go('cart')
+                        redeem_link_token(code[len('QTLINK:'):]); go('cart')
                     else:
                         lookup(code)
                     kbd_text = ''
@@ -658,122 +639,129 @@ while running:
             elif ev.unicode and ev.unicode.isprintable():
                 kbd_text += ev.unicode; kbd_active = True
 
-        # Dokunma/tıklama başlangıcı
         elif ev.type == pygame.MOUSEBUTTONDOWN:
             drag_start = ev.pos
-            drag_scroll_start = cart_scroll if screen_name == 'cart' else co_scroll
+            drag_scroll_start = (cart_scroll if screen_name == 'cart'
+                                 else prod_scroll if screen_name == 'add' and add_tab == 'products'
+                                 else co_scroll)
             dragging = False
 
         elif ev.type == pygame.MOUSEMOTION:
-            if drag_start and abs(ev.pos[1] - drag_start[1]) > 10:
+            if drag_start and abs(ev.pos[1]-drag_start[1]) > 10:
                 dragging = True
-                delta = drag_start[1] - ev.pos[1]
+                delta = drag_start[1]-ev.pos[1]
                 if screen_name == 'cart':
-                    cart_scroll = max(0, drag_scroll_start + delta)
+                    cart_scroll = max(0, drag_scroll_start+delta)
+                elif screen_name == 'add' and add_tab == 'products':
+                    prod_scroll = max(0, drag_scroll_start+delta)
                 elif screen_name == 'checkout':
-                    co_scroll = max(0, drag_scroll_start + delta)
+                    co_scroll = max(0, drag_scroll_start+delta)
 
-        # Dokunma bırakma → tap
         elif ev.type == pygame.MOUSEBUTTONUP and not dragging:
             pos = ev.pos
-
             if screen_name == 'cart':
-                if hit(CART_SCAN_BTN, pos) or hit(CART_SCAN_ACT, pos):
-                    go('scanner')
-                elif hit(CART_PAY_ACT, pos):
+                if hit(CART_ADD_BTN, pos) or hit(CART_SCAN_BTN, pos):
+                    go('add')
+                elif hit(CART_PAY_BTN, pos):
                     go('checkout')
                 elif pi_user and hit(USER_LOGOUT_BTN, pos):
-                    pi_user  = None
-                    pi_token = None
-                    toast('Hesaptan cikis yapildi', T2)
+                    pi_user = None; pi_token = None; toast('Cikis yapildi', T2)
                 else:
                     for reg in _cart_items_y():
                         if hit(reg['plus'],  pos): cart_update(reg['barcode'],  1); break
                         if hit(reg['minus'], pos): cart_update(reg['barcode'], -1); break
 
-            elif screen_name == 'scanner':
-                if hit(BACK_BTN, pos):
+            elif screen_name == 'add':
+                if hit(ADD_BACK, pos):
                     go('cart')
-                elif hit(MANUAL_IN, pos):
-                    kbd_active = True
-                elif hit(MANUAL_GO, pos):
-                    if kbd_text.strip():
-                        lookup(kbd_text.strip()); kbd_text = ''
+                elif hit(TAB_PROD, pos):
+                    add_tab = 'products'; scan_result = None
+                elif hit(TAB_CODE, pos):
+                    add_tab = 'code'
+                elif add_tab == 'products':
+                    for p, reg in zip(PRODUCTS, _prod_items_y()):
+                        if hit(reg['add_btn'], pos):
+                            cart_add(p); toast(f"+ {p['name']}", SU); break
+                elif add_tab == 'code':
+                    if hit(MANUAL_IN, pos):   kbd_active = True
+                    elif hit(MANUAL_GO, pos):
+                        if kbd_text.strip(): lookup(kbd_text.strip()); kbd_text = ''
 
             elif screen_name == 'checkout':
-                if hit(BACK_BTN, pos) or hit(BACK_CO_BTN, pos):
+                if hit(ADD_BACK, pos) or hit(BACK_CO_BTN, pos):
                     go('cart')
                 elif hit(CONFIRM_BTN, pos):
-                    # Hesap bağlıysa fişi backend'e kaydet
                     if pi_user and pi_token:
-                        items_snap = [dict(i) for i in cart]
-                        threading.Thread(
-                            target=_save_receipt,
-                            args=(items_snap, pi_token),
-                            daemon=True,
-                        ).start()
+                        snap = [dict(i) for i in cart]
+                        threading.Thread(target=_save_receipt, args=(snap,pi_token),
+                                         daemon=True).start()
                     cart.clear(); cart_scroll = 0
-                    toast('Odeme tamamlandi!', SU)
-                    go('cart')
+                    toast('Odeme tamamlandi!', SU); go('cart')
 
             drag_start = None; dragging = False
 
         elif ev.type == pygame.MOUSEBUTTONUP:
             drag_start = None; dragging = False
 
-    # ── Çiz
+    # Çiz
     if   screen_name == 'cart':     draw_cart()
-    elif screen_name == 'scanner':  draw_scanner()
+    elif screen_name == 'add':      draw_add()
     elif screen_name == 'checkout': draw_checkout()
     draw_toast()
     pygame.display.flip()
 
-    # Pi'de ILI9341'e gönder
+    # ILI9341'e gönder
     if _disp is not None and _Image is not None:
         try:
             _raw = pygame.surfarray.array3d(screen)
-            _img = _Image.fromarray(_raw.transpose(1, 0, 2), 'RGB')
+            _img = _Image.fromarray(_raw.transpose(1,0,2), 'RGB')
             _disp.display(_img)
         except Exception:
             pass
 
-    # ── XPT2046 dokunmatik — display yazımı bitti, SPI CS ayrı, çakışma yok ──
+    # XPT2046 dokunmatik okuma
     if _tspi is not None:
         try:
             def _tr(c):
-                r = _tspi.xfer2([c, 0, 0])
-                return ((r[1] << 8) | r[2]) >> 3
+                r = _tspi.xfer2([c,0,0])
+                return ((r[1]<<8)|r[2])>>3
             _z = _tr(0xB0)
             if _z > 200:
-                _sx = max(0, min(W-1, int((_tr(0xD0) - _TX_MIN) / (_TX_MAX - _TX_MIN) * W)))
-                _sy = max(0, min(H-1, int((_TY_MAX - _tr(0x90)) / (_TY_MAX - _TY_MIN) * H)))
+                _sx = max(0,min(W-1,int((_tr(0xD0)-_TX_MIN)/(_TX_MAX-_TX_MIN)*W)))
+                _sy = max(0,min(H-1,int((_TY_MAX-_tr(0x90))/(_TY_MAX-_TY_MIN)*H)))
                 if not _touching:
                     _touching = True
-                    _tp = (_sx, _sy)
+                    _tp = (_sx,_sy)
                     if screen_name == 'cart':
-                        if hit(CART_SCAN_BTN, _tp) or hit(CART_SCAN_ACT, _tp): go('scanner')
-                        elif hit(CART_PAY_ACT, _tp): go('checkout')
-                        elif pi_user and hit(USER_LOGOUT_BTN, _tp):
-                            pi_user = None; pi_token = None
-                            toast('Hesaptan cikis yapildi', T2)
+                        if hit(CART_ADD_BTN,_tp) or hit(CART_SCAN_BTN,_tp): go('add')
+                        elif hit(CART_PAY_BTN,_tp): go('checkout')
+                        elif pi_user and hit(USER_LOGOUT_BTN,_tp):
+                            pi_user=None; pi_token=None; toast('Cikis yapildi',T2)
                         else:
                             for _rg in _cart_items_y():
-                                if hit(_rg['plus'],  _tp): cart_update(_rg['barcode'],  1); break
-                                if hit(_rg['minus'], _tp): cart_update(_rg['barcode'], -1); break
-                    elif screen_name == 'scanner':
-                        if hit(BACK_BTN, _tp): go('cart')
-                        elif hit(MANUAL_IN, _tp): kbd_active = True
-                        elif hit(MANUAL_GO, _tp):
-                            if kbd_text.strip(): lookup(kbd_text.strip()); kbd_text = ''
+                                if hit(_rg['plus'], _tp):  cart_update(_rg['barcode'], 1);  break
+                                if hit(_rg['minus'],_tp): cart_update(_rg['barcode'],-1); break
+                    elif screen_name == 'add':
+                        if hit(ADD_BACK,_tp):   go('cart')
+                        elif hit(TAB_PROD,_tp): add_tab='products'; scan_result=None
+                        elif hit(TAB_CODE,_tp): add_tab='code'
+                        elif add_tab == 'products':
+                            for _p,_r in zip(PRODUCTS,_prod_items_y()):
+                                if hit(_r['add_btn'],_tp):
+                                    cart_add(_p); toast(f"+ {_p['name']}",SU); break
+                        elif add_tab == 'code':
+                            if hit(MANUAL_IN,_tp):  kbd_active=True
+                            elif hit(MANUAL_GO,_tp):
+                                if kbd_text.strip(): lookup(kbd_text.strip()); kbd_text=''
                     elif screen_name == 'checkout':
-                        if hit(BACK_BTN, _tp) or hit(BACK_CO_BTN, _tp): go('cart')
-                        elif hit(CONFIRM_BTN, _tp):
+                        if hit(ADD_BACK,_tp) or hit(BACK_CO_BTN,_tp): go('cart')
+                        elif hit(CONFIRM_BTN,_tp):
                             if pi_user and pi_token:
-                                _snap = [dict(i) for i in cart]
+                                _snap=[dict(i) for i in cart]
                                 threading.Thread(target=_save_receipt,
-                                    args=(_snap, pi_token), daemon=True).start()
-                            cart.clear(); cart_scroll = 0
-                            toast('Odeme tamamlandi!', SU); go('cart')
+                                    args=(_snap,pi_token),daemon=True).start()
+                            cart.clear(); cart_scroll=0
+                            toast('Odeme tamamlandi!',SU); go('cart')
             else:
                 _touching = False
         except Exception:
