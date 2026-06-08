@@ -51,36 +51,64 @@ clock  = pygame.time.Clock()
 if not DEV:
     pygame.mouse.set_visible(False)
 
-# ── luma.lcd ILI9341 (yalnızca Pi modunda) ────────────────────────────────────
+# ── Doğrudan SPI — ILI9341 240×320 portrait sürücüsü ─────────────────────────
 _disp  = None
 _Image = None
 if not DEV:
     try:
-        from luma.lcd.device import ili9341 as _ILI9341
-        from luma.core.interface.serial import spi as _SPI
+        import spidev  as _spidev
+        import lgpio   as _lgpio
+        import numpy   as _np
         from PIL import Image as _Image
-        import lgpio as _lgpio
 
-        class _GpioAdapter:
-            """RPi.GPIO uyumlu lgpio sarmalayıcısı (luma.core için)."""
-            BCM = 11; OUT = 0; IN = 1; HIGH = 1; LOW = 0
+        class _ILI9341:
+            _DC = 24; _RST = 25
             def __init__(self):
-                self._h = _lgpio.gpiochip_open(0)  # setmode bekleme, hemen aç
-                self._pins = []
-            def setmode(self, _m): pass
-            def setup(self, pin, _d):
-                _lgpio.gpio_claim_output(self._h, pin); self._pins.append(pin)
-            def output(self, pin, val):
-                _lgpio.gpio_write(self._h, pin, int(val))
-            def cleanup(self):
-                for p in self._pins: _lgpio.gpio_free(self._h, p)
-                _lgpio.gpiochip_close(self._h)
+                self._gh = _lgpio.gpiochip_open(0)
+                _lgpio.gpio_claim_output(self._gh, self._DC)
+                _lgpio.gpio_claim_output(self._gh, self._RST)
+                self._spi = _spidev.SpiDev()
+                self._spi.open(0, 0)
+                self._spi.max_speed_hz = 32_000_000
+                self._spi.mode = 0
+                self._reset(); self._init()
 
-        _serial = _SPI(port=0, device=0, gpio_DC=24, gpio_RST=25,
-                       bus_speed_hz=32000000, gpio_BACKLIGHT=None,
-                       gpio=_GpioAdapter())
-        _disp = _ILI9341(_serial, width=240, height=320, rotate=0, bgr=False)
-        print('[display] ILI9341 hazir')
+            def _dc(self, v): _lgpio.gpio_write(self._gh, self._DC, v)
+            def _rst(self, v): _lgpio.gpio_write(self._gh, self._RST, v)
+
+            def _cmd(self, c, *d):
+                self._dc(0); self._spi.writebytes([c])
+                if d: self._dc(1); self._spi.writebytes(list(d))
+
+            def _reset(self):
+                self._rst(0); time.sleep(0.02)
+                self._rst(1); time.sleep(0.15)
+
+            def _init(self):
+                c = self._cmd
+                c(0xEF,0x03,0x80,0x02); c(0xCF,0x00,0xC1,0x30)
+                c(0xED,0x64,0x03,0x12,0x81); c(0xE8,0x85,0x00,0x78)
+                c(0xCB,0x39,0x2C,0x00,0x34,0x02); c(0xF7,0x20); c(0xEA,0x00,0x00)
+                c(0xC0,0x23); c(0xC1,0x10); c(0xC5,0x3E,0x28); c(0xC7,0x86)
+                c(0x36,0x48)   # MADCTL: portrait MX=1, BGR
+                c(0x3A,0x55)   # 16-bit RGB565
+                c(0xB1,0x00,0x18); c(0xB6,0x08,0x82,0x27); c(0xF2,0x00); c(0x26,0x01)
+                c(0xE0,0x0F,0x31,0x2B,0x0C,0x0E,0x08,0x4E,0xF1,0x37,0x07,0x10,0x03,0x0E,0x09,0x00)
+                c(0xE1,0x00,0x0E,0x14,0x03,0x11,0x07,0x31,0xC1,0x48,0x08,0x0F,0x0C,0x31,0x36,0x0F)
+                c(0x11); time.sleep(0.12); c(0x29)
+
+            def display(self, img):
+                """PIL RGB 240×320 görüntüyü RGB565 olarak ekrana yaz."""
+                a  = _np.array(img, dtype=_np.uint16)   # (320, 240, 3)
+                px = ((a[:,:,0]>>3)<<11)|((a[:,:,1]>>2)<<5)|(a[:,:,2]>>3)
+                px = px.byteswap().astype(_np.uint16)
+                self._cmd(0x2A,0x00,0x00,0x00,0xEF)    # cols 0–239
+                self._cmd(0x2B,0x00,0x00,0x01,0x3F)    # rows 0–319
+                self._dc(0); self._spi.writebytes([0x2C])
+                self._dc(1); self._spi.writebytes2(px.tobytes())
+
+        _disp = _ILI9341()
+        print('[display] ILI9341 hazir (direct SPI)')
     except Exception as _e:
         print(f'[display] HATA: {_e}')
 
