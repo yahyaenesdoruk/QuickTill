@@ -2,31 +2,30 @@
 """
 QuickTill Pi Kiosk — Native pygame uygulaması
 ==============================================
-Chrome veya X11 gerekmez. Doğrudan framebuffer'a çizer.
+Chrome veya X11 gerekmez. luma.lcd ile ILI9341 SPI ekrana doğrudan çizer.
 240×320 ILI9341 SPI ekran + XPT2046 dokunmatik için.
 
 Kullanım:
-  python3 app.py            → Pi'de (fbcon + /dev/fb0)
+  python3 app.py            → Pi'de (luma.lcd + ILI9341)
   python3 app.py --dev      → Masaüstünde test (normal pencere)
 
 Bağımlılıklar:
-  pip3 install pygame requests websockets evdev --break-system-packages
+  pip3 install pygame requests websockets evdev luma.lcd luma.core --break-system-packages
 """
 
 import os, sys, threading, time, json, queue
 import pygame
 import requests
 
-# ── Ortam — fbcon modu (X11 yok) ─────────────────────────────────────────────
+# ── Ortam — offscreen modu (luma.lcd doğrudan SPI'a yazar) ───────────────────
 DEV = '--dev' in sys.argv
 if not DEV:
-    os.environ.setdefault('SDL_VIDEODRIVER', 'fbcon')
-    os.environ.setdefault('SDL_FBDEV',       '/dev/fb0')   # fbcp-ili9341 bunu mirror eder
-    os.environ.setdefault('SDL_NOMOUSE',     '1')
+    os.environ['SDL_VIDEODRIVER'] = 'offscreen'
+    os.environ['SDL_NOMOUSE']     = '1'
 
 # ── Sabitler ──────────────────────────────────────────────────────────────────
 W, H   = 240, 320
-FPS    = 30
+FPS    = 30 if DEV else 20   # Pi'de SPI transfer hızına göre 20fps
 API    = 'https://quicktill-backend.onrender.com/api'
 WS_URL = 'ws://localhost:8765'
 
@@ -51,6 +50,21 @@ pygame.display.set_caption('QuickTill')
 clock  = pygame.time.Clock()
 if not DEV:
     pygame.mouse.set_visible(False)
+
+# ── luma.lcd ILI9341 (yalnızca Pi modunda) ────────────────────────────────────
+_disp  = None
+_Image = None
+if not DEV:
+    try:
+        from luma.lcd.device import ili9341 as _ILI9341
+        from luma.core.interface.serial import spi as _SPI
+        from PIL import Image as _Image
+        _serial = _SPI(port=0, device=0, gpio_DC=24, gpio_RST=25,
+                       bus_speed_hz=32000000, gpio_BACKLIGHT=None)
+        _disp = _ILI9341(_serial, width=240, height=320, rotate=0, bgr=False)
+        print('[display] ILI9341 hazir')
+    except Exception as _e:
+        print(f'[display] HATA: {_e}')
 
 def _font(size, bold=False):
     for name in ['DejaVuSans', 'DejaVu Sans', 'FreeSans', None]:
@@ -625,6 +639,16 @@ while running:
     elif screen_name == 'checkout': draw_checkout()
     draw_toast()
     pygame.display.flip()
+
+    # Pi'de luma.lcd üzerinden ILI9341'e gönder
+    if _disp is not None and _Image is not None:
+        try:
+            raw = pygame.surfarray.array3d(screen)   # (240, 320, 3)
+            img = _Image.fromarray(raw.transpose(1, 0, 2), 'RGB')
+            _disp.display(img)
+        except Exception:
+            pass
+
     clock.tick(FPS)
 
 pygame.quit()

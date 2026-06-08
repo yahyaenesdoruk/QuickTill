@@ -90,47 +90,14 @@ if [ "$BARCODE_MODE" = "picamera" ]; then
     fi
 fi
 
-# ── 4. Ekran yapılandırması (240×320 ILI9341) ─────────────
-echo "[4/8] 240x320 ekran yapılandırılıyor..."
+# ── 4. luma.lcd kurulumu (ILI9341 Python sürücüsü) ────────
+echo "[4/6] luma.lcd kuruluyor (fbcp-ili9341 yerine, derleme yok)..."
+pip3 install --break-system-packages luma.lcd luma.core 2>/dev/null || \
+    pip3 install --user luma.lcd luma.core
+echo "  → luma.lcd hazır"
 
-if ! grep -q "hdmi_cvt=240 320" "$CONFIG_FILE" 2>/dev/null; then
-    sudo tee -a "$CONFIG_FILE" > /dev/null <<'EOFCFG'
-
-# QuickTill ILI9341 ekran (240x320)
-hdmi_group=2
-hdmi_mode=87
-hdmi_cvt=240 320 60 1 0 0 0
-hdmi_force_hotplug=1
-EOFCFG
-    echo "  → Ekran yapılandırması eklendi"
-else
-    echo "  → Ekran yapılandırması zaten mevcut"
-fi
-
-# ── 5. fbcp-ili9341 derleme (HDMI → SPI LCD köprüsü) ──────
-echo "[5/8] fbcp-ili9341 derleniyor..."
-if [ ! -f /usr/local/bin/fbcp-ili9341 ]; then
-    cd /tmp
-    [ -d fbcp-ili9341 ] && rm -rf fbcp-ili9341
-    git clone https://github.com/juj/fbcp-ili9341.git
-    cd fbcp-ili9341
-    mkdir build && cd build
-    cmake -DILI9341=ON \
-          -DGPIO_TFT_DATA_CONTROL=24 \
-          -DGPIO_TFT_RESET_PIN=25 \
-          -DSPI_BUS_CLOCK_DIVISOR=6 \
-          -DBACKLIGHT_CONTROL=ON \
-          -DSTATISTICS=0 \
-          ..
-    make -j$(nproc)
-    sudo cp fbcp-ili9341 /usr/local/bin/
-    echo "  → fbcp-ili9341 /usr/local/bin/ dizinine kuruldu"
-else
-    echo "  → fbcp-ili9341 zaten kurulu"
-fi
-
-# ── 6. Systemd servisleri ─────────────────────────────────
-echo "[6/8] Systemd servisleri kuruluyor..."
+# ── 5. Systemd servisleri ─────────────────────────────────
+echo "[5/6] Systemd servisleri kuruluyor..."
 CURRENT_USER=$(whoami)
 
 # --- Barkod servisi ---
@@ -151,36 +118,19 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
-# --- fbcp-ili9341 ekran servisi ---
-sudo tee /etc/systemd/system/quicktill-display.service > /dev/null <<'EOF'
-[Unit]
-Description=QuickTill ILI9341 Ekran (fbcp-ili9341)
-After=multi-user.target
-
-[Service]
-ExecStart=/usr/local/bin/fbcp-ili9341
-Restart=always
-RestartSec=2
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# --- Native pygame kiosk servisi (browser YOK, X11 YOK) ---
+# --- Kiosk servisi (luma.lcd ile doğrudan SPI, display servisi yok) ---
 PI_APP_DIR="$QUICKTILL_DIR/pi-app"
 sudo tee /etc/systemd/system/quicktill-kiosk.service > /dev/null <<EOF
 [Unit]
-Description=QuickTill Kiosk (pygame native)
-After=quicktill-display.service quicktill-barcode.service
-Wants=quicktill-display.service quicktill-barcode.service
+Description=QuickTill Kiosk (pygame + luma.lcd)
+After=quicktill-barcode.service
+Wants=quicktill-barcode.service
 
 [Service]
 User=$CURRENT_USER
 WorkingDirectory=$PI_APP_DIR
-Environment=SDL_VIDEODRIVER=fbcon
-Environment=SDL_FBDEV=/dev/fb0
 Environment=SDL_NOMOUSE=1
-ExecStartPre=/bin/sleep 3
+ExecStartPre=/bin/sleep 2
 ExecStart=/usr/bin/python3 $PI_APP_DIR/app.py
 Restart=always
 RestartSec=5
@@ -190,7 +140,7 @@ WantedBy=multi-user.target
 EOF
 
 sudo systemctl daemon-reload
-sudo systemctl enable quicktill-display quicktill-barcode quicktill-kiosk
+sudo systemctl enable quicktill-barcode quicktill-kiosk
 echo "  → Servisler etkinleştirildi"
 
 # ── 7. Konsol otomatik giriş (X11 gerekmez) ──────────────
@@ -220,9 +170,8 @@ echo ""
 echo "   3. Yeniden başlat: sudo reboot"
 echo ""
 echo "   4. Kontrol et:"
-echo "      sudo systemctl status quicktill-kiosk    # pygame uygulaması"
+echo "      sudo systemctl status quicktill-kiosk    # pygame + luma.lcd"
 echo "      sudo systemctl status quicktill-barcode  # barkod servisi"
-echo "      sudo systemctl status quicktill-display  # fbcp-ili9341"
 echo ""
 echo "   5. Masaüstünde test (Pi olmadan):"
 echo "      python3 pi-app/app.py --dev"
