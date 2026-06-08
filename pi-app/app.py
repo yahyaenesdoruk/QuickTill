@@ -14,6 +14,7 @@ Bağımlılıklar:
 """
 
 import os, sys, threading, time, json, queue
+_spi_lock = threading.Lock()   # ILI9341 + XPT2046 aynı SPI0 bus'ını paylaşır
 import pygame
 import requests
 
@@ -25,7 +26,7 @@ if not DEV:
 
 # ── Sabitler ──────────────────────────────────────────────────────────────────
 W, H   = 240, 320
-FPS    = 30 if DEV else 20   # Pi'de SPI transfer hızına göre 20fps
+FPS    = 30 if DEV else 8    # Pi'de SPI busy → touch için bus boşaltılması lazım
 API    = 'https://quicktill-backend.onrender.com/api'
 WS_URL = 'ws://localhost:8765'
 
@@ -102,10 +103,11 @@ if not DEV:
                 a  = _np.array(img, dtype=_np.uint16)   # (320, 240, 3)
                 px = ((a[:,:,0]>>3)<<11)|((a[:,:,1]>>2)<<5)|(a[:,:,2]>>3)
                 px = px.byteswap().astype(_np.uint16)
-                self._cmd(0x2A,0x00,0x00,0x00,0xEF)    # cols 0–239
-                self._cmd(0x2B,0x00,0x00,0x01,0x3F)    # rows 0–319
-                self._dc(0); self._spi.writebytes([0x2C])
-                self._dc(1); self._spi.writebytes2(px.tobytes())
+                with _spi_lock:
+                    self._cmd(0x2A,0x00,0x00,0x00,0xEF)    # cols 0–239
+                    self._cmd(0x2B,0x00,0x00,0x01,0x3F)    # rows 0–319
+                    self._dc(0); self._spi.writebytes([0x2C])
+                    self._dc(1); self._spi.writebytes2(px.tobytes())
 
         _disp = _ILI9341()
         print('[display] ILI9341 hazir (direct SPI)')
@@ -283,7 +285,8 @@ def _touch_loop():
         return
 
     def raw(cmd):
-        r = spi.xfer2([cmd, 0x00, 0x00])
+        with _spi_lock:
+            r = spi.xfer2([cmd, 0x00, 0x00])
         return ((r[1] << 8) | r[2]) >> 3   # 12-bit
 
     # Kalibrasyon (köşe testinden ölçüldü)
