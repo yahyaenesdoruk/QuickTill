@@ -30,15 +30,14 @@ echo "[1/8] Sistem paketleri kuruluyor..."
 sudo apt-get update -y
 sudo apt-get install -y \
     python3-pip \
-    libzbar0 \
+    libzbar0t64 \
     cmake \
     git \
     libsdl2-dev \
     libsdl2-ttf-dev \
     libsdl2-image-dev \
     fonts-dejavu \
-    evtest \
-    tslib
+    evtest || true
 
 # ── 2. Python paketleri ───────────────────────────────────
 echo "[2/8] Python paketleri kuruluyor (mod: $BARCODE_MODE)..."
