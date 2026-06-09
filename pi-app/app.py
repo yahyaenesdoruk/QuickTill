@@ -184,6 +184,7 @@ co_scroll   = 0
 event_queue = queue.Queue()
 pi_user     = None
 pi_token    = None
+link_busy   = False
 
 # ── Sepet yardımcıları ────────────────────────────────────────────────────────
 def cart_add(product):
@@ -651,7 +652,7 @@ def draw_toast():
 # ── Ekran geçişi ──────────────────────────────────────────────────────────────
 def go(name):
     global screen_name, scan_result, kbd_text, kbd_active
-    global cart_scroll, prod_scroll, co_scroll, add_tab, link_pin
+    global cart_scroll, prod_scroll, co_scroll, add_tab, link_pin, link_busy
     screen_name = name
     if name == 'add':
         scan_result = None; kbd_text = ''; kbd_active = False
@@ -662,7 +663,7 @@ def go(name):
         if not cart:
             toast('Sepet bos!', ER); screen_name = 'cart'
     if name == 'link':
-        link_pin = ''
+        link_pin = ''; link_busy = False
 
 # ── Ana döngü ─────────────────────────────────────────────────────────────────
 drag_start        = None
@@ -691,11 +692,14 @@ while running:
                 scan_result = {'ok':False,'code':m['code']}
                 toast(f"Bulunamadi: {m['code']}", ER)
         elif m['t'] == 'link_ok':
+            link_busy = False
             pi_user = m['user']; pi_token = m['token']
             first = pi_user['name'].split()[0] if pi_user.get('name') else pi_user.get('username','')
             toast(f"Hosgeldin, {first}!", SU, 3)
             if screen_name == 'link': go('cart')
         elif m['t'] == 'link_fail':
+            link_busy = False
+            link_pin = ''
             toast(m.get('msg','Giris hatasi'), ER)
         elif m['t'] == 'receipt_ok':
             toast('Fis kaydedildi!', SU)
@@ -767,9 +771,11 @@ while running:
                             if val == 'DEL':
                                 link_pin = link_pin[:-1]
                             elif val == 'OK':
-                                if len(link_pin) == 6:
-                                    redeem_link_code(link_pin); go('cart')
-                                else:
+                                if len(link_pin) == 6 and not link_busy:
+                                    link_busy = True
+                                    toast('Dogrulanıyor...', T2, 10)
+                                    redeem_link_code(link_pin)
+                                elif not link_busy:
                                     toast('6 hane gir!', ER)
                             else:
                                 if len(link_pin) < 6:
@@ -878,9 +884,11 @@ while running:
                                     if _val == 'DEL':
                                         link_pin = link_pin[:-1]
                                     elif _val == 'OK':
-                                        if len(link_pin)==6:
-                                            redeem_link_code(link_pin); go('cart')
-                                        else:
+                                        if len(link_pin)==6 and not link_busy:
+                                            link_busy = True
+                                            toast('Dogrulanıyor...', T2, 10)
+                                            redeem_link_code(link_pin)
+                                        elif not link_busy:
                                             toast('6 hane gir!',ER)
                                     else:
                                         if len(link_pin)<6: link_pin += _val

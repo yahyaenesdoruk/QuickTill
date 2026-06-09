@@ -1,33 +1,39 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Product, ProduceItem } from '../models/Product';
 import { sampleProducts, produceItems } from '../data/sampleProducts';
+import { API_BASE_URL, fetchWithTimeout } from './ApiConfig';
 
-const PRODUCTS_KEY = '@cartpay_products';
 const PRODUCE_KEY = '@cartpay_produce';
 
 export class ProductService {
+  /** Fetch products from backend; fall back to local sample data on error. */
   static async getProducts(): Promise<Product[]> {
     try {
-      const data = await AsyncStorage.getItem(PRODUCTS_KEY);
-      if (data) {
-        return JSON.parse(data);
+      const res = await fetchWithTimeout(`${API_BASE_URL}/products`, {}, 10000);
+      if (res.ok) {
+        const data = await res.json();
+        // Backend returns a flat array
+        const list: any[] = Array.isArray(data) ? data : (data.products ?? []);
+        return list.map((p: any) => ({
+          id: p.id ?? p._id,
+          name: p.name,
+          price: p.price,
+          barcode: p.barcode ?? '',
+          category: p.category ?? '',
+          image: p.image,
+        }));
       }
-      await this.saveProducts(sampleProducts);
-      return sampleProducts;
-    } catch (error) {
-      return sampleProducts;
+    } catch (_) {
+      // network error — fall through to local data
     }
+    return sampleProducts;
   }
 
-  static async saveProducts(products: Product[]): Promise<void> {
-    await AsyncStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
-  }
+  /** No-op kept for API compatibility (products now live on the backend). */
+  static async saveProducts(_products: Product[]): Promise<void> {}
 
-  static async addProduct(product: Product): Promise<void> {
-    const products = await this.getProducts();
-    products.push(product);
-    await this.saveProducts(products);
-  }
+  /** No-op kept for API compatibility. */
+  static async addProduct(_product: Product): Promise<void> {}
 
   static async getProduceItems(): Promise<ProduceItem[]> {
     try {
@@ -53,6 +59,25 @@ export class ProductService {
   }
 
   static async findProductByBarcode(barcode: string): Promise<Product | undefined> {
+    try {
+      const res = await fetchWithTimeout(
+        `${API_BASE_URL}/products/barcode/${encodeURIComponent(barcode)}`,
+        {},
+        10000
+      );
+      if (res.ok) {
+        const p = await res.json();
+        return {
+          id: p.id ?? p._id,
+          name: p.name,
+          price: p.price,
+          barcode: p.barcode ?? barcode,
+          category: p.category ?? '',
+          image: p.image,
+        };
+      }
+    } catch (_) {}
+    // Fall back to local search
     const products = await this.getProducts();
     return products.find(p => p.barcode === barcode);
   }
