@@ -305,10 +305,15 @@ async def change_password(
 # ── QR Hesap Bağlama ──────────────────────────────────────────────────────────
 
 import secrets as _secrets
+import random as _random
 
 
 class RedeemTokenRequest(BaseModel):
     token: str
+
+
+class RedeemCodeRequest(BaseModel):
+    code: str
 
 
 @router.post("/link-token")
@@ -357,6 +362,115 @@ async def redeem_link_token(req: RedeemTokenRequest):
             "id": user["id"],
             "email": user["email"],
             "name": user["name"],
+            "username": user["username"],
+        },
+    }
+
+
+class ClaimPiSessionRequest(BaseModel):
+    session_id: str
+
+
+@router.post("/pi-session")
+async def create_pi_session():
+    """Pi (auth yok) yeni oturum açar. QR formatı: QTPI:{session_id}"""
+    db = get_db()
+    session_id = _secrets.token_urlsafe(16)
+    await db.pi_sessions.insert_one({
+        "session_id": session_id,
+        "status":     "pending",
+        "expires_at": datetime.utcnow() + timedelta(minutes=5),
+    })
+    return {"session_id": session_id, "expires_in": 300}
+
+
+@router.post("/claim-pi-session")
+async def claim_pi_session(
+    req: ClaimPiSessionRequest,
+    current_user=Depends(get_current_user),
+):
+    """Telefon (giriş yapmış) Pi oturumunu sahiplenir."""
+    db = get_db()
+    record = await db.pi_sessions.find_one({"session_id": req.session_id})
+    if not record:
+        raise HTTPException(status_code=404, detail="Oturum bulunamadi")
+    if datetime.utcnow() > record["expires_at"]:
+        await db.pi_sessions.delete_one({"session_id": req.session_id})
+        raise HTTPException(status_code=410, detail="Oturumun suresi dolmus")
+    jwt_token = create_token(current_user["id"], current_user["role"])
+    await db.pi_sessions.update_one(
+        {"session_id": req.session_id},
+        {"$set": {
+            "status": "claimed",
+            "token":  jwt_token,
+            "user": {
+                "id":       current_user["id"],
+                "email":    current_user["email"],
+                "name":     current_user["name"],
+                "username": current_user["username"],
+            },
+        }},
+    )
+    return {"ok": True}
+
+
+@router.get("/pi-session/{session_id}")
+async def get_pi_session(session_id: str):
+    """Pi her 2 saniyede bir sorgular."""
+    db = get_db()
+    record = await db.pi_sessions.find_one({"session_id": session_id})
+    if not record:
+        raise HTTPException(status_code=404, detail="Bulunamadi")
+    if datetime.utcnow() > record["expires_at"]:
+        await db.pi_sessions.delete_one({"session_id": session_id})
+        raise HTTPException(status_code=410, detail="Suresi dolmus")
+    if record["status"] == "claimed":
+        await db.pi_sessions.delete_one({"session_id": session_id})
+        return {"status": "claimed", "token": record["token"], "user": record["user"]}
+    return {"status": "pending"}
+
+
+@router.post("/link-code")
+async def create_link_code(current_user=Depends(get_current_user)):
+    """
+    6 haneli PIN üretir. Telefonda göster, Pi'ye elle gir.
+    5 dakika geçerli, tek kullanımlık.
+    """
+    db = get_db()
+    code = f"{_random.randint(0, 999999):06d}"
+    await db.link_codes.replace_one(
+        {"user_id": current_user["id"]},
+        {
+            "user_id":   current_user["id"],
+            "code":      code,
+            "expires_at": datetime.utcnow() + timedelta(minutes=5),
+        },
+        upsert=True,
+    )
+    return {"code": code, "expires_in": 300}
+
+
+@router.post("/redeem-link-code")
+async def redeem_link_code(req: RedeemCodeRequest):
+    """Pi'nin girdiği 6 haneli PIN'i doğrular."""
+    db = get_db()
+    record = await db.link_codes.find_one({"code": req.code})
+    if not record:
+        raise HTTPException(status_code=404, detail="Kod bulunamadi")
+    if datetime.utcnow() > record["expires_at"]:
+        await db.link_codes.delete_one({"code": req.code})
+        raise HTTPException(status_code=410, detail="Kodun suresi dolmus")
+    user = await db.users.find_one({"id": record["user_id"]})
+    if not user:
+        raise HTTPException(status_code=404, detail="Kullanici bulunamadi")
+    await db.link_codes.delete_one({"code": req.code})
+    jwt_token = create_token(user["id"], user["role"])
+    return {
+        "token": jwt_token,
+        "user": {
+            "id":       user["id"],
+            "email":    user["email"],
+            "name":     user["name"],
             "username": user["username"],
         },
     }

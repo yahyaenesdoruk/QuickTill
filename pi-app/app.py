@@ -259,6 +259,7 @@ def _redeem_link_code(code):
 def redeem_link_code(code):
     threading.Thread(target=_redeem_link_code, args=(code,), daemon=True).start()
 
+
 def _save_receipt(items_snapshot, token):
     from datetime import datetime as _dt
     now = _dt.now()
@@ -583,18 +584,17 @@ def draw_checkout():
     button('< Geri Don', BACK_CO_BTN, WH, P)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# EKRAN: HESAP BAĞLAMA (6 haneli PIN tuş takımı)
+# EKRAN: HESAP BAĞLAMA — sadece PIN tuş takımı
 # ─────────────────────────────────────────────────────────────────────────────
 LINK_BACK = (0, 0, 44, HDR)
 
-_KP_Y  = 140        # tuş takımı başlangıç Y
-_KP_W  = W // 3     # 80 px — sütun genişliği
-_KP_H  = 46         # satır yüksekliği
+_KP_W = W // 3           # 80 px
+_KP_Y0 = 130             # tuş takımı başlangıç Y
+_KP_H = (H - _KP_Y0) // 4  # 47 px
 
 def _kp_rect(row, col):
-    return (col * _KP_W, _KP_Y + row * _KP_H, _KP_W, _KP_H)
+    return (col * _KP_W, _KP_Y0 + row * _KP_H, _KP_W, _KP_H)
 
-# (satır, sütun, ekran etiketi, değer)
 _KP_KEYS = [
     (0,0,'1','1'),(0,1,'2','2'),(0,2,'3','3'),
     (1,0,'4','4'),(1,1,'5','5'),(1,2,'6','6'),
@@ -611,21 +611,21 @@ def draw_link():
     text('<', F14B, P, 10, 14)
     text('Hesabimi Bagla', F15B, TX, W//2, 14, 'center')
 
-    # Açıklama kutusu
-    fill_rect(WH, (0, HDR, W, _KP_Y - HDR))
-    pygame.draw.line(screen, BD, (0, _KP_Y), (W, _KP_Y), 1)
+    # Açıklama
+    fill_rect(WH, (0, HDR, W, _KP_Y0 - HDR))
+    pygame.draw.line(screen, BD, (0, _KP_Y0), (W, _KP_Y0), 1)
     text('Telefondan 6 haneli kodu al:', F12, T2, W//2, HDR + 10, 'center')
-    text('Profil > Pi\'ye QR ile Baglan', F11, T2, W//2, HDR + 26, 'center')
+    text('Profil > Pi\'ye Baglan', F11, T2, W//2, HDR + 26, 'center')
 
     # PIN kutuları
-    bx = (W - (6*32 + 5*4)) // 2
+    bx = (W - (6 * 32 + 5 * 4)) // 2
     for i in range(6):
         xi = bx + i * 36
         filled = i < len(link_pin)
-        fill_rect(WH if filled else BG, (xi, HDR + 52, 32, 36), 6)
-        stroke_rect(P if filled else BD, (xi, HDR + 52, 32, 36), 2, 6)
+        fill_rect(WH if filled else BG, (xi, HDR + 54, 32, 36), 6)
+        stroke_rect(P if filled else BD, (xi, HDR + 54, 32, 36), 2, 6)
         if filled:
-            text(link_pin[i], F14B, TX, xi + 16, HDR + 59, 'center')
+            text(link_pin[i], F14B, TX, xi + 16, HDR + 61, 'center')
 
     # Tuş takımı
     for row, col, label, val in _KP_KEYS:
@@ -636,7 +636,7 @@ def draw_link():
         fg = WH if is_ok else (ER if is_del else TX)
         fill_rect(bg, (rx, ry, rw, rh))
         stroke_rect(BD, (rx, ry, rw, rh), 1)
-        text(label, F14B, fg, rx + rw // 2, ry + rh // 2 - 8, 'center')
+        text(label, F14B, fg, rx + rw//2, ry + rh//2 - 8, 'center')
 
 # ── Toast ─────────────────────────────────────────────────────────────────────
 def draw_toast():
@@ -694,6 +694,7 @@ while running:
             pi_user = m['user']; pi_token = m['token']
             first = pi_user['name'].split()[0] if pi_user.get('name') else pi_user.get('username','')
             toast(f"Hosgeldin, {first}!", SU, 3)
+            if screen_name == 'link': go('cart')
         elif m['t'] == 'link_fail':
             toast(m.get('msg','Giris hatasi'), ER)
         elif m['t'] == 'receipt_ok':

@@ -146,6 +146,23 @@ export class AuthService {
   }
 
   /**
+   * Pi'nin gösterdiği QR'ı (QTPI:{session_id}) telefon taradıktan sonra çağrılır.
+   */
+  static async claimPiSession(sessionId: string): Promise<void> {
+    const token = await this.getToken();
+    const res = await fetchWithTimeout(`${API_BASE_URL}/auth/claim-pi-session`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Oturum dogrulanamadi');
+  }
+
+  /**
    * Pi ekranında QR ile hızlı hesap girişi için 5 dakika geçerli token üretir.
    * Dönen token ile QR kod oluşturulur: QTLINK:{token}
    */
@@ -161,5 +178,23 @@ export class AuthService {
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || 'Token oluşturulamadı');
     return data.token;
+  }
+
+  /**
+   * Pi'ye 6 haneli PIN ile giriş için kod üretir.
+   * Pi tuş takımından girilir, 5 dakika geçerli.
+   */
+  static async createLinkCode(): Promise<string> {
+    const token = await this.getToken();
+    const res = await fetchWithTimeout(`${API_BASE_URL}/auth/link-code`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Kod oluşturulamadı');
+    return data.code;
   }
 }

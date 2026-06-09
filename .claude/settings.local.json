@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git rm *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git remote *)",
+      "Bash(git push *)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(git init *)",
+      "Bash(pip3 show *)",
+      "Bash(curl -s -H \"Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu\" \"https://api.render.com/v1/services?limit=20\")",
+      "Bash(python3 -m json.tool)",
+      "Bash(curl -s -X PATCH -H 'Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu' -H 'Content-Type: application/json' -d '{ *)",
+      "Bash(curl -s -X POST -H 'Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu' -H 'Content-Type: application/json' -d '{\"clearCache\": \"do_not_clear\"}' https://api.render.com/v1/services/srv-d7t2fcgk1i2s73a97g20/deploys)",
+      "Bash(curl -s -H \"Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu\" \"https://api.render.com/v1/services/srv-d7t2fcgk1i2s73a97g20/deploys/dep-d7t335km0tmc73do6390/logs\")",
+      "Bash(curl -s -H \"Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu\" \"https://api.render.com/v1/services/srv-d7t2fcgk1i2s73a97g20/logs?limit=100\")",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s -H \"Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu\" \"https://api.render.com/v1/services/srv-d7t2fcgk1i2s73a97g20/logs?limit=50\")",
+      "Bash(curl -s -H \"Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu\" \"https://api.render.com/v1/services/srv-d7t2fcgk1i2s73a97g20/deploys?limit=1\")",
+      "Bash(curl -s -H \"Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu\" \"https://api.render.com/v1/services/srv-d7t2fcgk1i2s73a97g20/env-vars\")",
+      "Bash(curl -s --max-time 10 -H 'Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu' https://api.render.com/v1/services/srv-d7t2fcgk1i2s73a97g20/deploys/dep-d7t335km0tmc73do6390/rollback-eligible)",
+      "Bash(curl -s -H 'Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu' 'https://api.render.com/v1/logs?serviceId=srv-d7t2fcgk1i2s73a97g20&type=build&limit=50')",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('id'\\) or d.get\\('deploy',{}\\).get\\('id',''\\)\\)\")",
+      "Bash(curl -s -H 'Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu' 'https://api.render.com/v1/services/srv-d7t2fcgk1i2s73a97g20/deploys?limit=1')",
+      "Bash(curl -s -X PATCH -H 'Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu' -H 'Content-Type: application/json' -d '{\"healthCheckPath\": \"/api/health\"}' https://api.render.com/v1/services/srv-d7t2fcgk1i2s73a97g20)",
+      "Bash(curl -s -H 'Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu' 'https://api.render.com/v1/services/srv-d7t2fcgk1i2s73a97g20/deploys?limit=3')",
+      "Bash(curl -s -H 'Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu' https://api.render.com/v1/services/srv-d7t2fcgk1i2s73a97g20/deploys/dep-d7t3df4vikkc73a4eu50)",
+      "Bash(curl -s -H 'Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu' 'https://api.render.com/v1/services/srv-d7t2fcgk1i2s73a97g20/deploys?limit=2')",
+      "Bash(curl -s -H 'Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu' https://api.render.com/v1/services/srv-d7t2fcgk1i2s73a97g20)",
+      "Bash(curl -s -H 'Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu' 'https://api.render.com/v1/services/srv-d7t2fcgk1i2s73a97g20/events?limit=5')",
+      "Bash(curl -s -H 'Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu' 'https://api.render.com/v1/services/srv-d7t2fcgk1i2s73a97g20/builds?limit=1')",
+      "Bash(curl -s -X POST https://quicktill-backend.onrender.com/api/auth/register -H 'Content-Type: application/json' -d '{\"email\":\"test@test.com\",\"name\":\"Test\",\"username\":\"testuser\",\"password\":\"test123\"}')",
+      "Bash(curl -s \"https://quick-till-one.vercel.app\")",
+      "Bash(curl -s -H 'Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu' 'https://api.render.com/v1/services/srv-d7t2fcgk1i2s73a97g20/logs?limit=100&type=app')",
+      "Bash(curl -s -X PUT -H 'Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu' -H 'Content-Type: application/json' -d '[ *)",
+      "Bash(curl -s -H 'Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu' https://api.render.com/v1/services/srv-d7t2fcgk1i2s73a97g20/env-vars)",
+      "Bash(curl -s -X POST -H 'Authorization: Bearer rnd_ZlXzg8iC1ChH38cnykcfXfnR5Ffu' -H 'Content-Type: application/json' -d '{}' https://api.render.com/v1/services/srv-d7t2fcgk1i2s73a97g20/deploys)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(d.get\\('id',''\\), d.get\\('status',''\\)\\)\")"
+    ]
+  }
+}
