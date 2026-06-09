@@ -169,8 +169,9 @@ PRODUCTS = [
 
 # ── State ─────────────────────────────────────────────────────────────────────
 cart        = []
-screen_name = 'cart'      # 'cart' | 'add' | 'checkout'
+screen_name = 'cart'      # 'cart' | 'add' | 'checkout' | 'link'
 add_tab     = 'products'  # 'products' | 'code'
+link_pin    = ''          # 6 haneli PIN girişi
 ws_status   = 'connecting'
 scan_result = None
 toast_data  = None
@@ -241,6 +242,22 @@ def _redeem_link_token(token):
 
 def redeem_link_token(token):
     threading.Thread(target=_redeem_link_token, args=(token,), daemon=True).start()
+
+def _redeem_link_code(code):
+    try:
+        r = requests.post(f'{API}/auth/redeem-link-code', json={'code': code}, timeout=10)
+        if r.ok:
+            data = r.json()
+            event_queue.put({'t':'link_ok','user':data['user'],'token':data['token']})
+        else:
+            try:    msg = r.json().get('detail','Giris hatasi')
+            except: msg = 'Giris hatasi'
+            event_queue.put({'t':'link_fail','msg':msg})
+    except Exception:
+        event_queue.put({'t':'link_fail','msg':'Baglanti hatasi'})
+
+def redeem_link_code(code):
+    threading.Thread(target=_redeem_link_code, args=(code,), daemon=True).start()
 
 def _save_receipt(items_snapshot, token):
     from datetime import datetime as _dt
@@ -328,6 +345,7 @@ FTR = 104   # sepet footer yüksekliği
 CART_ADD_BTN    = (W-44, 6, 36, 32)        # sağ üst + dairesi
 CART_SCAN_BTN   = (8, H-FTR+36, W-16, 30) # "Ürün Ekle" butonu
 CART_PAY_BTN    = (8, H-FTR+70, W-16, 30) # "Ödeme Yap" butonu
+CART_LINK_BTN   = (8, H-FTR+8,  W-16, 24) # "Hesap Bağla" (giriş yapılmamışsa)
 USER_LOGOUT_BTN = (W-68, 10, 60, 24)
 
 LST_Y = HDR
@@ -427,6 +445,10 @@ def draw_cart():
     fill_rect(WH, (0,fy,W,FTR))
     text(f'{cart_count()} urun', F12, T2, 12, fy+8)
     text(f'{cart_total():.2f} TL', F20, P, W-12, fy+4, 'right')
+    if not pi_user:
+        fill_rect(BG, CART_LINK_BTN, 8); stroke_rect(BD, CART_LINK_BTN, 1, 8)
+        text('Hesabimi Bagla', F11, T2,
+             CART_LINK_BTN[0]+CART_LINK_BTN[2]//2, CART_LINK_BTN[1]+6, 'center')
     button('+ Urun Ekle', CART_SCAN_BTN, P)
     button('Odeme Yap',   CART_PAY_BTN,  SU)
 
@@ -560,6 +582,62 @@ def draw_checkout():
     fill_rect(WH, BACK_CO_BTN, 8); stroke_rect(P, BACK_CO_BTN, 1, 8)
     button('< Geri Don', BACK_CO_BTN, WH, P)
 
+# ─────────────────────────────────────────────────────────────────────────────
+# EKRAN: HESAP BAĞLAMA (6 haneli PIN tuş takımı)
+# ─────────────────────────────────────────────────────────────────────────────
+LINK_BACK = (0, 0, 44, HDR)
+
+_KP_Y  = 140        # tuş takımı başlangıç Y
+_KP_W  = W // 3     # 80 px — sütun genişliği
+_KP_H  = 46         # satır yüksekliği
+
+def _kp_rect(row, col):
+    return (col * _KP_W, _KP_Y + row * _KP_H, _KP_W, _KP_H)
+
+# (satır, sütun, ekran etiketi, değer)
+_KP_KEYS = [
+    (0,0,'1','1'),(0,1,'2','2'),(0,2,'3','3'),
+    (1,0,'4','4'),(1,1,'5','5'),(1,2,'6','6'),
+    (2,0,'7','7'),(2,1,'8','8'),(2,2,'9','9'),
+    (3,0,'<','DEL'),(3,1,'0','0'),(3,2,'OK','OK'),
+]
+
+def draw_link():
+    screen.fill(BG)
+
+    # Header
+    fill_rect(WH, (0, 0, W, HDR))
+    pygame.draw.line(screen, BD, (0, HDR), (W, HDR), 1)
+    text('<', F14B, P, 10, 14)
+    text('Hesabimi Bagla', F15B, TX, W//2, 14, 'center')
+
+    # Açıklama kutusu
+    fill_rect(WH, (0, HDR, W, _KP_Y - HDR))
+    pygame.draw.line(screen, BD, (0, _KP_Y), (W, _KP_Y), 1)
+    text('Telefondan 6 haneli kodu al:', F12, T2, W//2, HDR + 10, 'center')
+    text('Profil > Pi\'ye QR ile Baglan', F11, T2, W//2, HDR + 26, 'center')
+
+    # PIN kutuları
+    bx = (W - (6*32 + 5*4)) // 2
+    for i in range(6):
+        xi = bx + i * 36
+        filled = i < len(link_pin)
+        fill_rect(WH if filled else BG, (xi, HDR + 52, 32, 36), 6)
+        stroke_rect(P if filled else BD, (xi, HDR + 52, 32, 36), 2, 6)
+        if filled:
+            text(link_pin[i], F14B, TX, xi + 16, HDR + 59, 'center')
+
+    # Tuş takımı
+    for row, col, label, val in _KP_KEYS:
+        rx, ry, rw, rh = _kp_rect(row, col)
+        is_ok  = val == 'OK'
+        is_del = val == 'DEL'
+        bg = SU if is_ok else (NO_BG if is_del else WH)
+        fg = WH if is_ok else (ER if is_del else TX)
+        fill_rect(bg, (rx, ry, rw, rh))
+        stroke_rect(BD, (rx, ry, rw, rh), 1)
+        text(label, F14B, fg, rx + rw // 2, ry + rh // 2 - 8, 'center')
+
 # ── Toast ─────────────────────────────────────────────────────────────────────
 def draw_toast():
     if not toast_data: return
@@ -573,7 +651,7 @@ def draw_toast():
 # ── Ekran geçişi ──────────────────────────────────────────────────────────────
 def go(name):
     global screen_name, scan_result, kbd_text, kbd_active
-    global cart_scroll, prod_scroll, co_scroll, add_tab
+    global cart_scroll, prod_scroll, co_scroll, add_tab, link_pin
     screen_name = name
     if name == 'add':
         scan_result = None; kbd_text = ''; kbd_active = False
@@ -583,6 +661,8 @@ def go(name):
         co_scroll = 0
         if not cart:
             toast('Sepet bos!', ER); screen_name = 'cart'
+    if name == 'link':
+        link_pin = ''
 
 # ── Ana döngü ─────────────────────────────────────────────────────────────────
 drag_start        = None
@@ -668,12 +748,32 @@ while running:
                     go('add')
                 elif hit(CART_PAY_BTN, pos):
                     go('checkout')
+                elif not pi_user and hit(CART_LINK_BTN, pos):
+                    go('link')
                 elif pi_user and hit(USER_LOGOUT_BTN, pos):
                     pi_user = None; pi_token = None; toast('Cikis yapildi', T2)
                 else:
                     for reg in _cart_items_y():
                         if hit(reg['plus'],  pos): cart_update(reg['barcode'],  1); break
                         if hit(reg['minus'], pos): cart_update(reg['barcode'], -1); break
+
+            elif screen_name == 'link':
+                if hit(LINK_BACK, pos):
+                    go('cart')
+                else:
+                    for row, col, label, val in _KP_KEYS:
+                        if hit(_kp_rect(row, col), pos):
+                            if val == 'DEL':
+                                link_pin = link_pin[:-1]
+                            elif val == 'OK':
+                                if len(link_pin) == 6:
+                                    redeem_link_code(link_pin); go('cart')
+                                else:
+                                    toast('6 hane gir!', ER)
+                            else:
+                                if len(link_pin) < 6:
+                                    link_pin += val
+                            break
 
             elif screen_name == 'add':
                 if hit(ADD_BACK, pos):
@@ -711,6 +811,7 @@ while running:
     if   screen_name == 'cart':     draw_cart()
     elif screen_name == 'add':      draw_add()
     elif screen_name == 'checkout': draw_checkout()
+    elif screen_name == 'link':     draw_link()
     draw_toast()
     pygame.display.flip()
 
@@ -760,12 +861,29 @@ while running:
                     if screen_name == 'cart':
                         if hit(CART_ADD_BTN,_tp) or hit(CART_SCAN_BTN,_tp): go('add')
                         elif hit(CART_PAY_BTN,_tp): go('checkout')
+                        elif not pi_user and hit(CART_LINK_BTN,_tp): go('link')
                         elif pi_user and hit(USER_LOGOUT_BTN,_tp):
                             pi_user=None; pi_token=None; toast('Cikis yapildi',T2)
                         else:
                             for _rg in _cart_items_y():
                                 if hit(_rg['plus'], _tp):  cart_update(_rg['barcode'], 1);  break
                                 if hit(_rg['minus'],_tp):  cart_update(_rg['barcode'],-1); break
+                    elif screen_name == 'link':
+                        if hit(LINK_BACK,_tp):
+                            go('cart')
+                        else:
+                            for _row,_col,_lbl,_val in _KP_KEYS:
+                                if hit(_kp_rect(_row,_col),_tp):
+                                    if _val == 'DEL':
+                                        link_pin = link_pin[:-1]
+                                    elif _val == 'OK':
+                                        if len(link_pin)==6:
+                                            redeem_link_code(link_pin); go('cart')
+                                        else:
+                                            toast('6 hane gir!',ER)
+                                    else:
+                                        if len(link_pin)<6: link_pin += _val
+                                    break
                     elif screen_name == 'add':
                         if hit(ADD_BACK,_tp):   go('cart')
                         elif hit(TAB_PROD,_tp): add_tab='products'; scan_result=None
