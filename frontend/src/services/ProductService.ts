@@ -32,8 +32,33 @@ export class ProductService {
   /** No-op kept for API compatibility (products now live on the backend). */
   static async saveProducts(_products: Product[]): Promise<void> {}
 
-  /** No-op kept for API compatibility. */
-  static async addProduct(_product: Product): Promise<void> {}
+  /** Backend'e yeni ürün ekle (admin token gerekli). */
+  static async addProduct(product: Product): Promise<void> {
+    const { AuthService } = await import('./AuthService');
+    const token = await AuthService.getToken();
+    if (!token) throw new Error('Giriş yapılmamış');
+    const res = await fetchWithTimeout(
+      `${API_BASE_URL}/products`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          barcode:  product.barcode,
+          name:     product.name,
+          price:    product.price,
+          category: product.category ?? 'General',
+        }),
+      },
+      10000
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail ?? `Hata: ${res.status}`);
+    }
+  }
 
   static async getProduceItems(): Promise<ProduceItem[]> {
     try {
