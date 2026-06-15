@@ -7,10 +7,18 @@ Kullanım:
   python3 app.py --dev    → Masaüstü test
 """
 
-import os, sys, threading, time, json, queue
+import os, sys, threading, time, json, queue, fcntl as _fcntl
 _spi_lock = threading.Lock()
 import pygame
 import requests
+
+# ── Tek örnek kilidi (çift-process'i engelle) ────────────────────────────────
+_lock_fd = open('/tmp/quicktill.lock', 'w')
+try:
+    _fcntl.flock(_lock_fd, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
+except IOError:
+    print('[quicktill] HATA: Baska bir ornek zaten calisiyor! (servis durduruldu mu?)')
+    sys.exit(1)
 
 DEV = '--dev' in sys.argv
 if not DEV:
@@ -67,7 +75,7 @@ if not DEV:
                 _lgpio.gpio_claim_output(self._gh, self._RST)
                 self._spi = _spidev.SpiDev()
                 self._spi.open(0, 0)
-                self._spi.max_speed_hz = 32_000_000
+                self._spi.max_speed_hz = 16_000_000
                 self._spi.mode = 0
                 self._reset(); self._init()
 
@@ -878,14 +886,15 @@ while running:
     elif screen_name == 'checkout': draw_checkout()
     elif screen_name == 'link':     draw_link()
     draw_toast()
-    pygame.display.flip()
 
-    # ILI9341'e gönder
+    # ILI9341'e gönder — flip'ten ÖNCE (surface temiz olsun)
     if _disp is not None:
         try:
             _disp.display(screen)
-        except Exception:
-            pass
+        except Exception as _de:
+            print(f'[display] HATA: {_de}')
+
+    pygame.display.flip()
 
     # XPT2046 dokunmatik okuma (tap + kaydırma)
     if _tspi is not None:
