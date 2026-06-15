@@ -95,11 +95,15 @@ if not DEV:
                 c(0xE1,0x00,0x0E,0x14,0x03,0x11,0x07,0x31,0xC1,0x48,0x08,0x0F,0x0C,0x31,0x36,0x0F)
                 c(0x11); time.sleep(0.12); c(0x29)
 
-            def display(self, img):
-                a  = _np.array(img, dtype=_np.uint16)
-                # Panel BGR sıralaması: B yüksek bitte
-                px = ((a[:,:,2]>>3)<<11)|((a[:,:,1]>>2)<<5)|(a[:,:,0]>>3)
-                px = px.byteswap().astype(_np.uint16)
+            def display(self, surface):
+                # pygame surfarray (W,H,3) → transpose → (H,W,3) BGR565
+                import pygame as _pg
+                a = _np.ascontiguousarray(
+                    _pg.surfarray.array3d(surface).transpose(1, 0, 2),
+                    dtype=_np.uint16)
+                r, g, b = a[:,:,0], a[:,:,1], a[:,:,2]
+                px = ((b>>3)<<11)|((g>>2)<<5)|(r>>3)
+                px = _np.ascontiguousarray(px.byteswap())
                 data = px.tobytes()
                 with _spi_lock:
                     self._cmd(0x2A,0x00,0x00,0x00,0xEF)
@@ -878,11 +882,9 @@ while running:
     pygame.display.flip()
 
     # ILI9341'e gönder
-    if _disp is not None and _Image is not None:
+    if _disp is not None:
         try:
-            _raw = pygame.surfarray.array3d(screen)
-            _img = _Image.fromarray(_raw.transpose(1,0,2), 'RGB')
-            _disp.display(_img)
+            _disp.display(screen)
         except Exception:
             pass
 
