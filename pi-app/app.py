@@ -59,6 +59,10 @@ if not DEV:
             _DC = 24; _RST = 25
             def __init__(self):
                 self._gh = _lgpio.gpiochip_open(0)
+                try: _lgpio.gpio_free(self._gh, self._DC)
+                except: pass
+                try: _lgpio.gpio_free(self._gh, self._RST)
+                except: pass
                 _lgpio.gpio_claim_output(self._gh, self._DC)
                 _lgpio.gpio_claim_output(self._gh, self._RST)
                 self._spi = _spidev.SpiDev()
