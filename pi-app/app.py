@@ -161,28 +161,28 @@ F14B = _font(14, True);  F15B = _font(15, True)
 
 # ── Ürün listesi (web uygulamasıyla aynı) ────────────────────────────────────
 PRODUCTS = [
-    {'barcode':'8690504001011','name':'Sut 1L',             'price':28.50},
-    {'barcode':'8690504002012','name':'Beyaz Peynir 500g',  'price':89.90},
-    {'barcode':'8690504003013','name':'Kasar Peynir 350g',  'price':125.00},
-    {'barcode':'8690504004014','name':'Yogurt 500g',        'price':19.90},
-    {'barcode':'8690504005015','name':'Su 1.5L',            'price':6.50},
-    {'barcode':'8690504006016','name':'Kola 2.5L',          'price':42.90},
-    {'barcode':'8690504007017','name':'Ayran 1L',           'price':22.50},
-    {'barcode':'8690504008018','name':'Meyve Suyu 1L',      'price':28.90},
-    {'barcode':'8690504009019','name':'Ekmek',              'price':8.00},
-    {'barcode':'8690504010020','name':'Makarna 500g',       'price':18.50},
-    {'barcode':'8690504011021','name':'Pirinc 1kg',         'price':42.00},
-    {'barcode':'8690504012022','name':'Un 1kg',             'price':19.90},
-    {'barcode':'8690504013023','name':'Seker 1kg',          'price':35.00},
-    {'barcode':'8690504014024','name':'Salca 700g',         'price':32.50},
-    {'barcode':'8690504015025','name':'Ton Baligi Konserve','price':45.00},
-    {'barcode':'8690504016026','name':'Zeytin 500g',        'price':55.00},
-    {'barcode':'8690504017027','name':'Salam 150g',         'price':38.90},
-    {'barcode':'8690504018028','name':'Sosis 500g',         'price':52.00},
-    {'barcode':'8690504019029','name':'Deterjan 3kg',       'price':125.00},
-    {'barcode':'8690504020030','name':'Bulasik Deterjani',  'price':35.90},
-    {'barcode':'8690504021031','name':'Cips 150g',          'price':22.50},
-    {'barcode':'8690504022032','name':'Cikolata 80g',       'price':18.90},
+    {'barcode':'8690504001011','name':'Milk 1L',             'price':1.50},
+    {'barcode':'8690504002012','name':'White Cheese 500g',  'price':3.99},
+    {'barcode':'8690504003013','name':'Cheddar 350g',       'price':4.50},
+    {'barcode':'8690504004014','name':'Yogurt 500g',        'price':1.20},
+    {'barcode':'8690504005015','name':'Water 1.5L',         'price':0.89},
+    {'barcode':'8690504006016','name':'Cola 2.5L',          'price':2.49},
+    {'barcode':'8690504007017','name':'Yogurt Drink 1L',    'price':1.80},
+    {'barcode':'8690504008018','name':'Fruit Juice 1L',     'price':2.20},
+    {'barcode':'8690504009019','name':'Bread',              'price':1.10},
+    {'barcode':'8690504010020','name':'Pasta 500g',         'price':1.30},
+    {'barcode':'8690504011021','name':'Rice 1kg',           'price':2.50},
+    {'barcode':'8690504012022','name':'Flour 1kg',          'price':1.20},
+    {'barcode':'8690504013023','name':'Sugar 1kg',          'price':1.80},
+    {'barcode':'8690504014024','name':'Tomato Paste 700g',  'price':2.10},
+    {'barcode':'8690504015025','name':'Canned Tuna',        'price':2.80},
+    {'barcode':'8690504016026','name':'Olives 500g',        'price':3.50},
+    {'barcode':'8690504017027','name':'Salami 150g',        'price':2.40},
+    {'barcode':'8690504018028','name':'Sausage 500g',       'price':3.20},
+    {'barcode':'8690504019029','name':'Detergent 3kg',      'price':8.99},
+    {'barcode':'8690504020030','name':'Dish Soap',          'price':2.50},
+    {'barcode':'8690504021031','name':'Crisps 150g',        'price':1.50},
+    {'barcode':'8690504022032','name':'Chocolate 80g',      'price':1.20},
 ]
 
 # ── State ─────────────────────────────────────────────────────────────────────
@@ -266,11 +266,11 @@ def _redeem_link_token(token):
             data = r.json()
             event_queue.put({'t':'link_ok','user':data['user'],'token':data['token']})
         else:
-            try:    msg = r.json().get('detail','Giris hatasi')
-            except: msg = 'Giris hatasi'
+            try:    msg = r.json().get('detail','Login error')
+            except: msg = 'Login error'
             event_queue.put({'t':'link_fail','msg':msg})
     except Exception:
-        event_queue.put({'t':'link_fail','msg':'Baglanti hatasi'})
+        event_queue.put({'t':'link_fail','msg':'Connection error'})
 
 def redeem_link_token(token):
     threading.Thread(target=_redeem_link_token, args=(token,), daemon=True).start()
@@ -282,11 +282,11 @@ def _redeem_link_code(code):
             data = r.json()
             event_queue.put({'t':'link_ok','user':data['user'],'token':data['token']})
         else:
-            try:    msg = r.json().get('detail','Giris hatasi')
-            except: msg = 'Giris hatasi'
+            try:    msg = r.json().get('detail','Login error')
+            except: msg = 'Login error'
             event_queue.put({'t':'link_fail','msg':msg})
     except Exception:
-        event_queue.put({'t':'link_fail','msg':'Baglanti hatasi'})
+        event_queue.put({'t':'link_fail','msg':'Connection error'})
 
 def redeem_link_code(code):
     threading.Thread(target=_redeem_link_code, args=(code,), daemon=True).start()
@@ -446,7 +446,7 @@ def draw_cart():
         text(first, F13B, TX, 34, 14, max_w=70)
         fill_rect(NO_BG, USER_LOGOUT_BTN, 8)
         stroke_rect(ER, USER_LOGOUT_BTN, 1, 8)
-        text('Cikis', F11, ER,
+        text('Logout', F11, ER,
              USER_LOGOUT_BTN[0]+USER_LOGOUT_BTN[2]//2,
              USER_LOGOUT_BTN[1]+6, 'center')
     else:
@@ -459,8 +459,8 @@ def draw_cart():
     # Liste
     screen.set_clip(pygame.Rect(0, LST_Y, W, LST_H))
     if not cart:
-        text('Sepet bos', F13B, T2, W//2, LST_Y+58, 'center')
-        text('+ ile urun ekleyin', F11, T2, W//2, LST_Y+78, 'center')
+        text('Cart empty', F13B, T2, W//2, LST_Y+58, 'center')
+        text('Tap + to add items', F11, T2, W//2, LST_Y+78, 'center')
     else:
         global cart_scroll
         max_s = max(0, len(cart)*ITM_H - LST_H)
@@ -470,9 +470,9 @@ def draw_cart():
             if y+ITM_H < LST_Y-2 or y > LST_Y+LST_H+2: continue
             fill_rect(WH, (6,y,W-12,ITM_H-4), 10)
             text(item['name'], F12B, TX, 12, y+5, max_w=118)
-            text(f"{item['price']:.2f} TL/ad", F11, T2, 12, y+22)
+            text(f"£{item['price']:.2f} each", F11, T2, 12, y+22)
             # Toplam
-            text(f"{item['price']*item['qty']:.2f} TL", F12B, P,
+            text(f"£{item['price']*item['qty']:.2f}", F12B, P,
                  reg['minus'][0]-8, y+14, 'right')
             # - butonu
             fill_rect(BG, reg['minus'], 6); stroke_rect(BD, reg['minus'], 1, 6)
@@ -490,14 +490,14 @@ def draw_cart():
     fy = H - FTR
     pygame.draw.line(screen, BD, (0,fy), (W,fy), 1)
     fill_rect(WH, (0,fy,W,FTR))
-    text(f'{cart_count()} urun', F12, T2, 12, fy+8)
-    text(f'{cart_total():.2f} TL', F20, P, W-12, fy+4, 'right')
+    text(f'{cart_count()} items', F12, T2, 12, fy+8)
+    text(f'£{cart_total():.2f}', F20, P, W-12, fy+4, 'right')
     if not pi_user:
         fill_rect(BG, CART_LINK_BTN, 8); stroke_rect(BD, CART_LINK_BTN, 1, 8)
-        text('Hesabimi Bagla', F11, T2,
+        text('Link Account', F11, T2,
              CART_LINK_BTN[0]+CART_LINK_BTN[2]//2, CART_LINK_BTN[1]+6, 'center')
-    button('+ Urun Ekle', CART_SCAN_BTN, P)
-    button('Odeme Yap',   CART_PAY_BTN,  SU)
+    button('+ Add Item', CART_SCAN_BTN, P)
+    button('Pay',        CART_PAY_BTN,  SU)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # EKRAN: ÜRÜN EKLE
@@ -517,7 +517,7 @@ def draw_add():
     fill_rect(WH, (0,0,W,HDR))
     pygame.draw.line(screen, BD, (0,HDR), (W,HDR), 1)
     text('<', F14B, P, 10, 14)
-    text('Urun Ekle', F15B, TX, W//2, 14, 'center')
+    text('Add Item', F15B, TX, W//2, 14, 'center')
 
     # Sekme çubuğu
     fill_rect(WH, (0,HDR,W,TAB_H))
@@ -525,13 +525,13 @@ def draw_add():
     pygame.draw.line(screen, BD, (W//2,HDR+2), (W//2,HDR+TAB_H-2), 1)
 
     p_active = add_tab == 'products'
-    text('Urunler', F12B if p_active else F12,
+    text('Products', F12B if p_active else F12,
          P if p_active else T2, W//4, HDR+9, 'center')
     if p_active:
         pygame.draw.line(screen, P, (6, HDR+TAB_H-2), (W//2-6, HDR+TAB_H-2), 3)
 
     c_active = add_tab == 'code'
-    text('Kod Gir', F12B if c_active else F12,
+    text('Enter Code', F12B if c_active else F12,
          P if c_active else T2, W*3//4, HDR+9, 'center')
     if c_active:
         pygame.draw.line(screen, P, (W//2+6, HDR+TAB_H-2), (W-6, HDR+TAB_H-2), 3)
@@ -548,7 +548,7 @@ def draw_add():
             fill_rect(WH, (6,y,W-12,PROD_IH-4), 10)
             text(p['name'],    F12B, TX, 12, y+5,  max_w=W-68)
             text(p['barcode'], F11,  T2, 12, y+22, max_w=W-68)
-            text(f"{p['price']:.2f} TL", F12B, P, W-48, y+14, 'right')
+            text(f"£{p['price']:.2f}", F12B, P, W-48, y+14, 'right')
             # + yeşil daire
             cx = reg['add_btn'][0]+17; cy = reg['add_btn'][1]+16
             pygame.draw.circle(screen, P, (cx, cy), 14)
@@ -565,30 +565,30 @@ def draw_add():
                 fill_rect(OK_BG, (8,cy,W-16,58), 10)
                 stroke_rect(OK_BD, (8,cy,W-16,58), 1, 10)
                 text(p['name'], F13B, TX, 14, cy+8, max_w=W-28)
-                text(f"{p['price']:.2f} TL", F16, SU, 14, cy+28)
+                text(f"£{p['price']:.2f}", F16, SU, 14, cy+28)
                 qty = next((i['qty'] for i in cart if i['barcode']==p['barcode']),0)
-                if qty: text(f'Sepette: {qty}', F11, T2, W-14, cy+30, 'right')
+                if qty: text(f'In cart: {qty}', F11, T2, W-14, cy+30, 'right')
             else:
                 fill_rect(NO_BG, (8,cy,W-16,44), 10)
                 stroke_rect(NO_BD, (8,cy,W-16,44), 1, 10)
-                text('Urun bulunamadi', F13B, ER, W//2, cy+8, 'center')
+                text('Product not found', F13B, ER, W//2, cy+8, 'center')
                 text(str(scan_result.get('code','')), F11, T2, W//2, cy+26, 'center')
         else:
             fill_rect(WH, (8,cy,W-16,56), 10)
             if ws_status == 'ready':
                 pygame.draw.circle(screen, SU, (22, cy+22), 6)
-                text('USB Tarayici Hazir', F12B, TX, 34, cy+12)
-                text('Barkodu okutun', F12, T2, 34, cy+30)
+                text('USB Scanner Ready', F12B, TX, 34, cy+12)
+                text('Scan a barcode', F12, T2, 34, cy+30)
             elif ws_status == 'connecting':
-                text('Tarayici bekleniyor...', F12, T2, W//2, cy+22, 'center')
+                text('Waiting for scanner...', F12, T2, W//2, cy+22, 'center')
             else:
-                text('Tarayici bagli degil', F12, T2, W//2, cy+22, 'center')
-                text('Manuel giris kullanin', F11, T2, W//2, cy+38, 'center')
+                text('Scanner not connected', F12, T2, W//2, cy+22, 'center')
+                text('Use manual entry', F11, T2, W//2, cy+38, 'center')
 
         # Manuel giriş (alt şerit — sabit)
         fill_rect(WH, (0,_MNL_BASE,W,H-_MNL_BASE))
         pygame.draw.line(screen, BD, (0,_MNL_BASE), (W,_MNL_BASE), 1)
-        text('Manuel Barkod:', F12, T2, 10, _MNL_BASE+6)
+        text('Manual Barcode:', F12, T2, 10, _MNL_BASE+6)
         box_c = P if kbd_active else BD
         fill_rect(WH, MANUAL_IN, 6); stroke_rect(box_c, MANUAL_IN, 2, 6)
         disp = kbd_text if kbd_text else '8691234567890'
@@ -609,7 +609,7 @@ def draw_checkout():
     fill_rect(WH, (0,0,W,HDR))
     pygame.draw.line(screen, BD, (0,HDR), (W,HDR), 1)
     text('<', F14B, P, 10, 14)
-    text('Odeme', F15B, TX, W//2, 14, 'center')
+    text('Checkout', F15B, TX, W//2, 14, 'center')
 
     # Kalemler
     clip_h = H - HDR - 74 - (28 if has_disc else 0)
@@ -618,17 +618,17 @@ def draw_checkout():
     for item in cart:
         pygame.draw.line(screen, BD, (10,y+28), (W-10,y+28), 1)
         text(f"{item['name']} x{item['qty']}", F12, TX, 10, y+6, max_w=148)
-        text(f"{item['price']*item['qty']:.2f} TL", F12B, P, W-10, y+6, 'right')
+        text(f"£{item['price']*item['qty']:.2f}", F12B, P, W-10, y+6, 'right')
         y += 32
     # Ara toplam satırı
     fill_rect(WH, (0,y,W,36))
     pygame.draw.line(screen, BD, (0,y), (W,y), 1)
     if has_disc:
-        text('Ara Toplam', F12, T2, 10, y+10)
-        text(f'{cart_total():.2f} TL', F13B, T2, W-10, y+10, 'right')
+        text('Subtotal', F12, T2, 10, y+10)
+        text(f'£{cart_total():.2f}', F13B, T2, W-10, y+10, 'right')
     else:
-        text('TOPLAM', F13B, TX, 10, y+10)
-        text(f'{cart_total():.2f} TL', F20, P, W-10, y+6, 'right')
+        text('TOTAL', F13B, TX, 10, y+10)
+        text(f'£{cart_total():.2f}', F20, P, W-10, y+6, 'right')
     screen.set_clip(None)
 
     # İndirim + net toplam satırı
@@ -636,14 +636,14 @@ def draw_checkout():
         dy = H - 74 - 28
         fill_rect((232,245,233), (0, dy, W, 28))
         pygame.draw.line(screen, OK_BD, (0, dy), (W, dy), 1)
-        text('Kampanya', F12B, SU, 10, dy+7)
-        text(f'-{disc:.2f} TL', F12B, SU, W//2-4, dy+7, 'right')
-        text(f'{cart_total()-disc:.2f} TL', F14B, P, W-10, dy+5, 'right')
+        text('Discount', F12B, SU, 10, dy+7)
+        text(f'-£{disc:.2f}', F12B, SU, W//2-4, dy+7, 'right')
+        text(f'£{cart_total()-disc:.2f}', F14B, P, W-10, dy+5, 'right')
 
     # Butonlar
-    button('Odemeyi Onayla', CONFIRM_BTN, SU)
+    button('Confirm Payment', CONFIRM_BTN, SU)
     fill_rect(WH, BACK_CO_BTN, 8); stroke_rect(P, BACK_CO_BTN, 1, 8)
-    button('< Geri Don', BACK_CO_BTN, WH, P)
+    button('< Back', BACK_CO_BTN, WH, P)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # EKRAN: HESAP BAĞLAMA — sadece PIN tuş takımı
@@ -671,13 +671,13 @@ def draw_link():
     fill_rect(WH, (0, 0, W, HDR))
     pygame.draw.line(screen, BD, (0, HDR), (W, HDR), 1)
     text('<', F14B, P, 10, 14)
-    text('Hesabimi Bagla', F15B, TX, W//2, 14, 'center')
+    text('Link Account', F15B, TX, W//2, 14, 'center')
 
     # Açıklama
     fill_rect(WH, (0, HDR, W, _KP_Y0 - HDR))
     pygame.draw.line(screen, BD, (0, _KP_Y0), (W, _KP_Y0), 1)
-    text('Telefondan 6 haneli kodu al:', F12, T2, W//2, HDR + 10, 'center')
-    text('Profil > Pi\'ye Baglan', F11, T2, W//2, HDR + 26, 'center')
+    text('Get 6-digit code from phone:', F12, T2, W//2, HDR + 10, 'center')
+    text('Profile > Link to Pi', F11, T2, W//2, HDR + 26, 'center')
 
     # PIN kutuları
     bx = (W - (6 * 32 + 5 * 4)) // 2
@@ -722,7 +722,7 @@ def go(name):
     if name == 'checkout':
         co_scroll = 0
         if not cart:
-            toast('Sepet bos!', ER); screen_name = 'cart'
+            toast('Cart is empty!', ER); screen_name = 'cart'
     if name == 'link':
         link_pin = ''; link_busy = False
 
@@ -751,24 +751,24 @@ while running:
                 toast(f"+ {m['product']['name']}", SU)
             else:
                 scan_result = {'ok':False,'code':m['code']}
-                toast(f"Bulunamadi: {m['code']}", ER)
+                toast(f"Not found: {m['code']}", ER)
         elif m['t'] == 'link_ok':
             link_busy = False
             pi_user = m['user']; pi_token = m['token']
             fetch_campaigns(pi_token)
             first = pi_user['name'].split()[0] if pi_user.get('name') else pi_user.get('username','')
-            toast(f"Hosgeldin, {first}!", SU, 3)
+            toast(f"Welcome, {first}!", SU, 3)
             if screen_name == 'link': go('cart')
         elif m['t'] == 'link_fail':
             link_busy = False
             link_pin = ''
-            toast(m.get('msg','Giris hatasi'), ER)
+            toast(m.get('msg','Login error'), ER)
         elif m['t'] == 'campaigns_ok':
             pi_campaigns = m['campaigns']
         elif m['t'] == 'receipt_ok':
-            toast('Fis kaydedildi!', SU)
+            toast('Receipt saved!', SU)
         elif m['t'] == 'receipt_fail':
-            toast('Fis kaydedilemedi', ER)
+            toast('Receipt failed', ER)
 
     if toast_data and time.time() > toast_data[2]:
         toast_data = None
@@ -821,7 +821,7 @@ while running:
                     go('link')
                 elif pi_user and hit(USER_LOGOUT_BTN, pos):
                     pi_user = None; pi_token = None; pi_campaigns = []
-                    toast('Cikis yapildi', T2)
+                    toast('Logged out', T2)
                 else:
                     for reg in _cart_items_y():
                         if hit(reg['plus'],  pos): cart_update(reg['barcode'],  1); break
@@ -838,10 +838,10 @@ while running:
                             elif val == 'OK':
                                 if len(link_pin) == 6 and not link_busy:
                                     link_busy = True
-                                    toast('Dogrulanıyor...', T2, 10)
+                                    toast('Verifying...', T2, 10)
                                     redeem_link_code(link_pin)
                                 elif not link_busy:
-                                    toast('6 hane gir!', ER)
+                                    toast('Enter 6 digits!', ER)
                             else:
                                 if len(link_pin) < 6:
                                     link_pin += val
@@ -874,7 +874,7 @@ while running:
                                          args=(snap, pi_token, disc),
                                          daemon=True).start()
                     cart.clear(); cart_scroll = 0
-                    toast('Odeme tamamlandi!', SU); go('cart')
+                    toast('Payment complete!', SU); go('cart')
 
             drag_start = None; dragging = False
 
@@ -937,7 +937,7 @@ while running:
                         elif not pi_user and hit(CART_LINK_BTN,_tp): go('link')
                         elif pi_user and hit(USER_LOGOUT_BTN,_tp):
                             pi_user=None; pi_token=None; pi_campaigns=[]
-                            toast('Cikis yapildi',T2)
+                            toast('Logged out',T2)
                         else:
                             for _rg in _cart_items_y():
                                 if hit(_rg['plus'], _tp):  cart_update(_rg['barcode'], 1);  break
@@ -953,10 +953,10 @@ while running:
                                     elif _val == 'OK':
                                         if len(link_pin)==6 and not link_busy:
                                             link_busy = True
-                                            toast('Dogrulanıyor...', T2, 10)
+                                            toast('Verifying...', T2, 10)
                                             redeem_link_code(link_pin)
                                         elif not link_busy:
-                                            toast('6 hane gir!',ER)
+                                            toast('Enter 6 digits!',ER)
                                     else:
                                         if len(link_pin)<6: link_pin += _val
                                     break
@@ -981,7 +981,7 @@ while running:
                                 threading.Thread(target=_save_receipt,
                                     args=(_snap,pi_token,_disc),daemon=True).start()
                             cart.clear(); cart_scroll=0
-                            toast('Odeme tamamlandi!',SU); go('cart')
+                            toast('Payment complete!',SU); go('cart')
                 _touching       = False
                 _touch_dragging = False
         except Exception:
