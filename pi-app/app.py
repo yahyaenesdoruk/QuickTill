@@ -181,10 +181,11 @@ kbd_active  = False
 cart_scroll = 0
 prod_scroll = 0
 co_scroll   = 0
-event_queue = queue.Queue()
-pi_user     = None
-pi_token    = None
-link_busy   = False
+event_queue  = queue.Queue()
+pi_user      = None
+pi_token     = None
+link_busy    = False
+pi_campaigns = []
 
 # ── Sepet yardımcıları ────────────────────────────────────────────────────────
 def cart_add(product):
@@ -203,6 +204,18 @@ def cart_update(barcode, delta):
 
 def cart_total(): return sum(i['price']*i['qty'] for i in cart)
 def cart_count(): return sum(i['qty'] for i in cart)
+
+def campaign_discount():
+    """Aktif kampanyaların toplam indirimini hesapla."""
+    total = cart_total()
+    discount = 0.0
+    for c in pi_campaigns:
+        if not c.get('is_active', True): continue
+        if c.get('discount_type') == 'percent':
+            discount += total * c['discount_value'] / 100
+        elif c.get('discount_type') == 'fixed':
+            discount += c['discount_value']
+    return round(min(discount, total), 2)
 
 # ── API ───────────────────────────────────────────────────────────────────────
 def _lookup(code):
@@ -260,20 +273,34 @@ def _redeem_link_code(code):
 def redeem_link_code(code):
     threading.Thread(target=_redeem_link_code, args=(code,), daemon=True).start()
 
+def _fetch_campaigns(token):
+    try:
+        r = requests.get(f'{API}/campaigns',
+                         headers={'Authorization': f'Bearer {token}'}, timeout=10)
+        if r.ok:
+            event_queue.put({'t': 'campaigns_ok', 'campaigns': r.json()})
+    except Exception:
+        pass
 
-def _save_receipt(items_snapshot, token):
+def fetch_campaigns(token):
+    threading.Thread(target=_fetch_campaigns, args=(token,), daemon=True).start()
+
+
+def _save_receipt(items_snapshot, token, discount=0.0):
     from datetime import datetime as _dt
     now = _dt.now()
     ts  = str(int(now.timestamp()*1000))
+    subtotal = round(sum(i['price']*i['qty'] for i in items_snapshot), 2)
     payload = {
         'receiptId':    f"#RCP-{now.strftime('%Y%m%d')}-{ts[-4:]}",
         'date':         now.strftime('%d.%m.%Y'),
         'time':         now.strftime('%H:%M'),
         'items':        [{'name':i['name'],'quantity':i['qty'],'unitPrice':i['price'],
                           'subtotal':round(i['price']*i['qty'],2)} for i in items_snapshot],
-        'total':        round(sum(i['price']*i['qty'] for i in items_snapshot),2),
+        'total':        round(subtotal - discount, 2),
         'itemCount':    sum(i['qty'] for i in items_snapshot),
         'paymentMethod':'Pi',
+        'discount':     round(discount, 2),
     }
     try:
         r = requests.post(f'{API}/receipts', json=payload,
@@ -557,6 +584,8 @@ def draw_add():
 # ─────────────────────────────────────────────────────────────────────────────
 def draw_checkout():
     screen.fill(BG)
+    disc = campaign_discount()
+    has_disc = disc > 0
 
     # Header
     fill_rect(WH, (0,0,W,HDR))
@@ -565,19 +594,33 @@ def draw_checkout():
     text('Odeme', F15B, TX, W//2, 14, 'center')
 
     # Kalemler
-    screen.set_clip(pygame.Rect(0, HDR, W, H-HDR-74))
+    clip_h = H - HDR - 74 - (28 if has_disc else 0)
+    screen.set_clip(pygame.Rect(0, HDR, W, clip_h))
     y = HDR+8 - co_scroll
     for item in cart:
         pygame.draw.line(screen, BD, (10,y+28), (W-10,y+28), 1)
         text(f"{item['name']} x{item['qty']}", F12, TX, 10, y+6, max_w=148)
         text(f"{item['price']*item['qty']:.2f} TL", F12B, P, W-10, y+6, 'right')
         y += 32
-    # Toplam satırı
+    # Ara toplam satırı
     fill_rect(WH, (0,y,W,36))
     pygame.draw.line(screen, BD, (0,y), (W,y), 1)
-    text('TOPLAM', F13B, TX, 10, y+10)
-    text(f'{cart_total():.2f} TL', F20, P, W-10, y+6, 'right')
+    if has_disc:
+        text('Ara Toplam', F12, T2, 10, y+10)
+        text(f'{cart_total():.2f} TL', F13B, T2, W-10, y+10, 'right')
+    else:
+        text('TOPLAM', F13B, TX, 10, y+10)
+        text(f'{cart_total():.2f} TL', F20, P, W-10, y+6, 'right')
     screen.set_clip(None)
+
+    # İndirim + net toplam satırı
+    if has_disc:
+        dy = H - 74 - 28
+        fill_rect((232,245,233), (0, dy, W, 28))
+        pygame.draw.line(screen, OK_BD, (0, dy), (W, dy), 1)
+        text('Kampanya', F12B, SU, 10, dy+7)
+        text(f'-{disc:.2f} TL', F12B, SU, W//2-4, dy+7, 'right')
+        text(f'{cart_total()-disc:.2f} TL', F14B, P, W-10, dy+5, 'right')
 
     # Butonlar
     button('Odemeyi Onayla', CONFIRM_BTN, SU)
@@ -694,6 +737,7 @@ while running:
         elif m['t'] == 'link_ok':
             link_busy = False
             pi_user = m['user']; pi_token = m['token']
+            fetch_campaigns(pi_token)
             first = pi_user['name'].split()[0] if pi_user.get('name') else pi_user.get('username','')
             toast(f"Hosgeldin, {first}!", SU, 3)
             if screen_name == 'link': go('cart')
@@ -701,6 +745,8 @@ while running:
             link_busy = False
             link_pin = ''
             toast(m.get('msg','Giris hatasi'), ER)
+        elif m['t'] == 'campaigns_ok':
+            pi_campaigns = m['campaigns']
         elif m['t'] == 'receipt_ok':
             toast('Fis kaydedildi!', SU)
         elif m['t'] == 'receipt_fail':
@@ -756,7 +802,8 @@ while running:
                 elif not pi_user and hit(CART_LINK_BTN, pos):
                     go('link')
                 elif pi_user and hit(USER_LOGOUT_BTN, pos):
-                    pi_user = None; pi_token = None; toast('Cikis yapildi', T2)
+                    pi_user = None; pi_token = None; pi_campaigns = []
+                    toast('Cikis yapildi', T2)
                 else:
                     for reg in _cart_items_y():
                         if hit(reg['plus'],  pos): cart_update(reg['barcode'],  1); break
@@ -804,7 +851,9 @@ while running:
                 elif hit(CONFIRM_BTN, pos):
                     if pi_user and pi_token:
                         snap = [dict(i) for i in cart]
-                        threading.Thread(target=_save_receipt, args=(snap,pi_token),
+                        disc = campaign_discount()
+                        threading.Thread(target=_save_receipt,
+                                         args=(snap, pi_token, disc),
                                          daemon=True).start()
                     cart.clear(); cart_scroll = 0
                     toast('Odeme tamamlandi!', SU); go('cart')
@@ -870,7 +919,8 @@ while running:
                         elif hit(CART_PAY_BTN,_tp): go('checkout')
                         elif not pi_user and hit(CART_LINK_BTN,_tp): go('link')
                         elif pi_user and hit(USER_LOGOUT_BTN,_tp):
-                            pi_user=None; pi_token=None; toast('Cikis yapildi',T2)
+                            pi_user=None; pi_token=None; pi_campaigns=[]
+                            toast('Cikis yapildi',T2)
                         else:
                             for _rg in _cart_items_y():
                                 if hit(_rg['plus'], _tp):  cart_update(_rg['barcode'], 1);  break
@@ -910,8 +960,9 @@ while running:
                         elif hit(CONFIRM_BTN,_tp):
                             if pi_user and pi_token:
                                 _snap=[dict(i) for i in cart]
+                                _disc=campaign_discount()
                                 threading.Thread(target=_save_receipt,
-                                    args=(_snap,pi_token),daemon=True).start()
+                                    args=(_snap,pi_token,_disc),daemon=True).start()
                             cart.clear(); cart_scroll=0
                             toast('Odeme tamamlandi!',SU); go('cart')
                 _touching       = False
