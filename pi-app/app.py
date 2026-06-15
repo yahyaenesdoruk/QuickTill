@@ -105,9 +105,7 @@ if not DEV:
                     self._cmd(0x2A,0x00,0x00,0x00,0xEF)
                     self._cmd(0x2B,0x00,0x00,0x01,0x3F)
                     self._dc(0); self._spi.writebytes([0x2C])
-                    self._dc(1)
-                    for i in range(0, len(data), 4096):
-                        self._spi.writebytes2(data[i:i+4096])
+                    self._dc(1); self._spi.writebytes2(data)
 
         _disp = _ILI9341()
         print('[display] ILI9341 hazir')
