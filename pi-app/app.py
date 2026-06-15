@@ -96,11 +96,10 @@ if not DEV:
                 c(0x11); time.sleep(0.12); c(0x29)
 
             def display(self, surface):
-                # pygame surfarray (W,H,3) → transpose → (H,W,3) BGR565
+                # image.tostring → (H*W*3) bytes, RGB, row-major (no transpose needed)
                 import pygame as _pg
-                a = _np.ascontiguousarray(
-                    _pg.surfarray.array3d(surface).transpose(1, 0, 2),
-                    dtype=_np.uint16)
+                raw = _pg.image.tostring(surface, 'RGB')
+                a = _np.frombuffer(raw, dtype=_np.uint8).reshape(H, W, 3).astype(_np.uint16)
                 r, g, b = a[:,:,0], a[:,:,1], a[:,:,2]
                 px = ((b>>3)<<11)|((g>>2)<<5)|(r>>3)
                 px = _np.ascontiguousarray(px.byteswap())
