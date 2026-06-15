@@ -22,8 +22,9 @@ except IOError:
 
 DEV = '--dev' in sys.argv
 if not DEV:
-    os.environ['SDL_VIDEODRIVER'] = 'offscreen'
-    os.environ['SDL_NOMOUSE']     = '1'
+    os.environ['SDL_VIDEODRIVER']    = 'offscreen'
+    os.environ['SDL_RENDER_DRIVER']  = 'software'   # GPU'dan bağımsız, CPU surface
+    os.environ['SDL_NOMOUSE']        = '1'
 
 W, H   = 240, 320
 FPS    = 30 if DEV else 10
@@ -47,7 +48,7 @@ NO_BD  = (239, 154, 154)
 
 # ── pygame Init ───────────────────────────────────────────────────────────────
 pygame.init()
-screen = pygame.display.set_mode((W, H))
+screen = pygame.display.set_mode((W, H), 0, 24)  # 24-bit RGB zorunlu
 pygame.display.set_caption('QuickTill')
 clock  = pygame.time.Clock()
 if not DEV:
@@ -887,14 +888,14 @@ while running:
     elif screen_name == 'link':     draw_link()
     draw_toast()
 
-    # ILI9341'e gönder — flip'ten ÖNCE (surface temiz olsun)
+    pygame.display.flip()   # önce SDL surface'ı commit et
+
+    # ILI9341'e gönder (flip sonrası — piksel verisi hazır)
     if _disp is not None:
         try:
             _disp.display(screen)
         except Exception as _de:
             print(f'[display] HATA: {_de}')
-
-    pygame.display.flip()
 
     # XPT2046 dokunmatik okuma (tap + kaydırma)
     if _tspi is not None:

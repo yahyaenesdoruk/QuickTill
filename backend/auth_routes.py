@@ -104,6 +104,19 @@ class ResetPasswordRequest(BaseModel):
 
 # ── Routes ───────────────────────────────────────────────────────────────────
 
+@router.post("/init-admin")
+async def init_admin(email: str):
+    """ADMIN_EMAIL env var ile eşleşen kullanıcıya admin rolü ver."""
+    admin_email = os.environ.get("ADMIN_EMAIL", "")
+    if not admin_email or email.lower() != admin_email.lower():
+        raise HTTPException(status_code=403, detail="Yetkisiz")
+    db = get_db()
+    result = await db.users.update_one({"email": email}, {"$set": {"role": "admin"}})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Kullanıcı bulunamadı")
+    return {"ok": True, "message": "Admin rolü verildi"}
+
+
 @router.post("/register")
 async def register(req: RegisterRequest):
     db = get_db()
