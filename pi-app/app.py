@@ -97,8 +97,7 @@ if not DEV:
 
             def display(self, img):
                 a  = _np.array(img, dtype=_np.uint16)
-                # BGR565: display BGR=1 mode, B→high bits
-                px = ((a[:,:,2]>>3)<<11)|((a[:,:,1]>>2)<<5)|(a[:,:,0]>>3)
+                px = ((a[:,:,0]>>3)<<11)|((a[:,:,1]>>2)<<5)|(a[:,:,2]>>3)
                 px = px.byteswap().astype(_np.uint16)
                 data = px.tobytes()
                 with _spi_lock:
